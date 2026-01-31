@@ -29,9 +29,7 @@ help: ## Show this help message
 
 generate: ## Generate Go code from schemas
 	@echo "🔄 Generating code from schemas..."
-	go run cmd/generator/main.go \
-		-schema-dir=$(SCHEMA_DIR) \
-		-output-dir=pkg/config
+	go generate ./pkg/config
 	@echo "✅ Code generation complete"
 
 build: build-client build-server ## Build all binaries
@@ -113,15 +111,17 @@ install: build ## Install binaries to /usr/local/bin (local machine)
 	@echo "   /usr/local/bin/$(CLIENT_BINARY)"
 	@echo "   /usr/local/bin/$(SERVER_BINARY)"
 
-deploy: build-client ## Deploy client to remote node via SSH (optional: passwordless sudo or SUDO_PASS)
+deploy: ## Deploy client to remote node via SSH (auto-detects platform, optional: passwordless sudo or SUDO_PASS)
 	@echo "🚀 Deploying to remote node..."
 	@# Load .env if it exists
-	@if [ -f .env ]; then \
+	@set -a; \
+	if [ -f .env ]; then \
 		echo "   Loading environment from .env"; \
-		set -a; . ./.env; set +a; \
+		. ./.env; \
 	fi; \
-	SSH_TARGET="$(SSH)"; \
-	NODE_CFG="$(NODE_CONFIG)"; \
+	set +a; \
+	SSH_TARGET="$${SSH:-$(SSH)}"; \
+	NODE_CFG="$${NODE_CONFIG:-$(NODE_CONFIG)}"; \
 	if [ -z "$$SSH_TARGET" ]; then \
 		echo "Usage: make deploy SSH=user@hostname NODE_CONFIG=config/nodes/hostname"; \
 		echo "   Or: export SSH=user@hostname && make deploy NODE_CONFIG=..."; \

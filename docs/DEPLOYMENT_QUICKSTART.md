@@ -91,12 +91,15 @@ make deploy SSH=stella@10.8.0.1 NODE_CONFIG=config/nodes/stella-PowerEdge-T420
 ```
 
 This:
-1. Builds `power-edge-client` binary
-2. Uploads binary and configs via SSH
-3. Installs to `/usr/local/bin/power-edge-client`
-4. Creates systemd service
-5. Starts and enables service
-6. Tests endpoints
+1. **Auto-detects target platform** (reads from discovery data or probes via SSH)
+2. **Cross-compiles binary** for target platform (e.g., macOS → Linux)
+3. Uploads binary and configs via SSH
+4. Installs to `/usr/local/bin/power-edge-client`
+5. Creates systemd service
+6. Starts and enables service
+7. Tests endpoints
+
+**Cross-Platform Support**: The deploy script automatically detects the target node's OS and architecture (linux/darwin, amd64/arm64) and builds the correct binary. You can develop on macOS and deploy to Linux seamlessly!
 
 ### Step 5: Verify Deployment
 

@@ -25,13 +25,33 @@ if [ ! -d "$NODE_CONFIG_DIR" ]; then
     exit 1
 fi
 
-if [ ! -f "bin/power-edge-client" ]; then
-    echo "❌ Error: Binary not found: bin/power-edge-client"
-    echo "   Run 'make build-client' first"
+echo "🚀 Deploying power-edge to $SSH_DEST"
+echo ""
+
+# Detect target platform
+echo "🔍 Detecting target platform..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLATFORM=$(bash "$SCRIPT_DIR/detect-platform.sh" "$SSH_DEST" "$NODE_CONFIG_DIR")
+
+if [ -z "$PLATFORM" ]; then
+    echo "❌ Failed to detect target platform"
     exit 1
 fi
 
-echo "🚀 Deploying power-edge to $SSH_DEST"
+GOOS=$(echo "$PLATFORM" | cut -d'-' -f1)
+GOARCH=$(echo "$PLATFORM" | cut -d'-' -f2)
+echo "✅ Target platform: $PLATFORM (GOOS=$GOOS GOARCH=$GOARCH)"
+echo ""
+
+# Build binary for target platform
+echo "🔨 Building power-edge-client for $PLATFORM..."
+mkdir -p bin
+if GOOS="$GOOS" GOARCH="$GOARCH" go build -ldflags "-X main.Version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') -X main.GitCommit=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown') -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" -o bin/power-edge-client ./cmd/power-edge-client; then
+    echo "✅ Build complete: bin/power-edge-client ($PLATFORM)"
+else
+    echo "❌ Build failed"
+    exit 1
+fi
 echo ""
 
 # Test connectivity
@@ -93,10 +113,10 @@ if ! id power-edge >/dev/null 2>&1; then
     eval $SUDO_PREFIX useradd --system --no-create-home --shell /bin/false power-edge
 fi
 
-# Create systemd service
-eval $SUDO_PREFIX tee /etc/systemd/system/power-edge.service > /dev/null << 'SERVICE'
+# Create systemd template service
+cat > /tmp/power-edge@.service << 'SERVICE'
 [Unit]
-Description=Power Edge - Edge State Controller
+Description=Power Edge - Edge State Controller (%i)
 After=network.target
 
 [Service]
@@ -120,23 +140,27 @@ ReadWritePaths=/var/log
 WantedBy=multi-user.target
 SERVICE
 
+# Move service file with sudo
+eval $SUDO_PREFIX mv /tmp/power-edge@.service /etc/systemd/system/power-edge@.service
+eval $SUDO_PREFIX chmod 644 /etc/systemd/system/power-edge@.service
+
 # Reload systemd
 eval $SUDO_PREFIX systemctl daemon-reload
 
-# Enable and start service
-eval $SUDO_PREFIX systemctl enable power-edge
-eval $SUDO_PREFIX systemctl start power-edge
+# Enable and start service instance
+eval $SUDO_PREFIX systemctl enable power-edge@client
+eval $SUDO_PREFIX systemctl start power-edge@client
 
 # Wait for service to start
 sleep 2
 
 # Check status
-if eval $SUDO_PREFIX systemctl is-active --quiet power-edge; then
+if eval $SUDO_PREFIX systemctl is-active --quiet power-edge@client; then
     echo "✅ Service started successfully"
-    eval $SUDO_PREFIX systemctl status power-edge --no-pager
+    eval $SUDO_PREFIX systemctl status power-edge@client --no-pager
 else
     echo "❌ Service failed to start"
-    eval $SUDO_PREFIX journalctl -u power-edge -n 50 --no-pager
+    eval $SUDO_PREFIX journalctl -u power-edge@client -n 50 --no-pager
     exit 1
 fi
 REMOTE_INSTALL
@@ -163,8 +187,8 @@ echo "📊 Metrics endpoint:"
 echo "   http://$REMOTE_IP:9100/metrics"
 echo ""
 echo "🔍 View logs:"
-echo "   ssh $SSH_DEST sudo journalctl -u power-edge -f"
+echo "   ssh $SSH_DEST sudo journalctl -u power-edge@client -f"
 echo ""
 echo "🛑 Stop service:"
-echo "   ssh $SSH_DEST sudo systemctl stop power-edge"
+echo "   ssh $SSH_DEST sudo systemctl stop power-edge@client"
 echo ""

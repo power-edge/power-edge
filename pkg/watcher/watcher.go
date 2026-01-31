@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,20 +32,29 @@ type Event struct {
 	Data      map[string]string
 }
 
+// Reconciler interface for triggering reconciliation
+type Reconciler interface {
+	ReconcileEvent(ctx context.Context, eventType, resourceName string, state *config.State) error
+}
+
 // EventWatcher manages all system event watchers
 type EventWatcher struct {
-	config    *config.WatcherConfig
-	eventChan chan Event
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
+	config      *config.WatcherConfig
+	reconciler  Reconciler
+	state       *config.State
+	eventChan   chan Event
+	ctx         context.Context
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
 }
 
 // NewEventWatcher creates a new event watcher
-func NewEventWatcher(cfg *config.WatcherConfig) *EventWatcher {
+func NewEventWatcher(cfg *config.WatcherConfig, reconciler Reconciler, state *config.State) *EventWatcher {
 	return &EventWatcher{
-		config:    cfg,
-		eventChan: make(chan Event, 100), // Buffer size from config
+		config:     cfg,
+		reconciler: reconciler,
+		state:      state,
+		eventChan:  make(chan Event, 100), // Buffer size from config
 	}
 }
 
@@ -121,17 +131,53 @@ func (w *EventWatcher) handleEvent(event Event) {
 	switch event.Type {
 	case EventFileModified:
 		log.Printf("   File modified: %s", event.Path)
-		// TODO: Trigger state check for affected resource
+		// Trigger reconciliation for file changes
+		if w.reconciler != nil {
+			if err := w.reconciler.ReconcileEvent(w.ctx, string(event.Type), event.Path, w.state); err != nil {
+				log.Printf("   Reconciliation triggered by file change failed: %v", err)
+			}
+		}
 	case EventServiceLog:
 		log.Printf("   Service log: %s", event.Unit)
-		// TODO: Parse log and trigger alerts if needed
+		// Parse log and trigger alerts if needed (future)
 	case EventCommandExecuted:
 		log.Printf("   Command executed: %s", event.Command)
-		// TODO: Trigger state check if command affects monitored resources
+		// Trigger reconciliation for commands that might affect state
+		if w.reconciler != nil && w.affectsMonitoredState(event.Command) {
+			if err := w.reconciler.ReconcileEvent(w.ctx, string(event.Type), event.Command, w.state); err != nil {
+				log.Printf("   Reconciliation triggered by command failed: %v", err)
+			}
+		}
 	case EventUnitStateChange:
 		log.Printf("   Unit state changed: %s", event.Unit)
-		// TODO: Trigger immediate compliance check
+		// Trigger immediate reconciliation for unit state changes
+		if w.reconciler != nil {
+			if err := w.reconciler.ReconcileEvent(w.ctx, string(event.Type), event.Unit, w.state); err != nil {
+				log.Printf("   Reconciliation triggered by unit change failed: %v", err)
+			}
+		}
 	}
+}
+
+// affectsMonitoredState checks if a command might affect state we're monitoring
+func (w *EventWatcher) affectsMonitoredState(command string) bool {
+	// Commands that affect system state we care about
+	stateChangingCommands := []string{
+		"systemctl",
+		"sysctl",
+		"ufw",
+		"firewall-cmd",
+		"apt",
+		"yum",
+		"dnf",
+	}
+
+	for _, cmd := range stateChangingCommands {
+		if strings.Contains(command, cmd) {
+			return true
+		}
+	}
+	return false
 }
 
 // Placeholder watcher implementations
