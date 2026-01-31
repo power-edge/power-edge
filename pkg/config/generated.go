@@ -10,6 +10,12 @@ import (
 
 
 
+// Command - Shell command or binary name
+type Command string
+
+
+
+
 // ServiceUnit - Systemd unit name
 type ServiceUnit string
 
@@ -24,11 +30,11 @@ type Version string
 
 // Metadata - 
 type Metadata struct {
+	Annotations map[string]interface{} `json:"annotations" yaml:"annotations"` // 
 	Site string `json:"site" yaml:"site"` // Unique site identifier (typically hostname)
 	Environment string `json:"environment" yaml:"environment"` // 
 	Description string `json:"description" yaml:"description"` // 
 	Labels map[string]interface{} `json:"labels" yaml:"labels"` // 
-	Annotations map[string]interface{} `json:"annotations" yaml:"annotations"` // 
 }
 
 
@@ -83,22 +89,16 @@ type UnixPath string
 
 
 
-// Command - Shell command or binary name
-type Command string
-
-
-
-
 // NodeIdentity - 
 type NodeIdentity struct {
-	Node NodeMetadata `json:"node" yaml:"node"` // 
-	Roles []NodeRole `json:"roles" yaml:"roles"` // Roles this node performs (maps to actual workloads)
-	VpnGateway VPNGatewayConfig `json:"vpn_gateway" yaml:"vpn_gateway"` // Configuration for VPN gateway role
 	ContainerHost ContainerHostConfig `json:"container_host" yaml:"container_host"` // Configuration for container host role
 	NetworkTuning NetworkTuning `json:"network_tuning" yaml:"network_tuning"` // Network-specific kernel parameters (semantic sysctl)
 	SystemTuning SystemTuning `json:"system_tuning" yaml:"system_tuning"` // System-level kernel parameters (semantic sysctl)
 	AccessControl AccessControl `json:"access_control" yaml:"access_control"` // Remote access and firewall configuration
 	Version string `json:"version" yaml:"version"` // 
+	Node NodeMetadata `json:"node" yaml:"node"` // 
+	Roles []NodeRole `json:"roles" yaml:"roles"` // Roles this node performs (maps to actual workloads)
+	VpnGateway VPNGatewayConfig `json:"vpn_gateway" yaml:"vpn_gateway"` // Configuration for VPN gateway role
 }
 
 
@@ -106,9 +106,9 @@ type NodeIdentity struct {
 
 // SystemTuning - System-level kernel parameters (semantic sysctl)
 type SystemTuning struct {
-	KernelPanic int `json:"kernel_panic" yaml:"kernel_panic"` // Seconds to wait before rebooting on panic
 	Swappiness int `json:"swappiness" yaml:"swappiness"` // VM swappiness (vm.swappiness)
 	InotifyMaxUserWatches int `json:"inotify_max_user_watches" yaml:"inotify_max_user_watches"` // Maximum inotify watches (fs.inotify.max_user_watches)
+	KernelPanic int `json:"kernel_panic" yaml:"kernel_panic"` // Seconds to wait before rebooting on panic
 }
 
 
@@ -118,17 +118,6 @@ type SystemTuning struct {
 type AccessControl struct {
 	Ssh SSHConfig `json:"ssh" yaml:"ssh"` // 
 	Firewall FirewallConfig `json:"firewall" yaml:"firewall"` // 
-}
-
-
-
-
-// SSHConfig - 
-type SSHConfig struct {
-	PasswordAuth bool `json:"password_auth" yaml:"password_auth"` // Allow password authentication
-	RootLogin bool `json:"root_login" yaml:"root_login"` // Allow root login
-	Enabled bool `json:"enabled" yaml:"enabled"` // 
-	Port int `json:"port" yaml:"port"` // 
 }
 
 
@@ -190,12 +179,23 @@ const (
 
 
 
+// SSHConfig - 
+type SSHConfig struct {
+	Enabled bool `json:"enabled" yaml:"enabled"` // 
+	Port int `json:"port" yaml:"port"` // 
+	PasswordAuth bool `json:"password_auth" yaml:"password_auth"` // Allow password authentication
+	RootLogin bool `json:"root_login" yaml:"root_login"` // Allow root login
+}
+
+
+
+
 // NodeMetadata - 
 type NodeMetadata struct {
-	Hostname string `json:"hostname" yaml:"hostname"` // Canonical hostname of the node
-	Purpose string `json:"purpose" yaml:"purpose"` // Primary purpose of this node
 	Tags []string `json:"tags" yaml:"tags"` // Semantic tags describing node capabilities
 	Hardware HardwareInfo `json:"hardware" yaml:"hardware"` // 
+	Hostname string `json:"hostname" yaml:"hostname"` // Canonical hostname of the node
+	Purpose string `json:"purpose" yaml:"purpose"` // Primary purpose of this node
 }
 
 
@@ -226,9 +226,9 @@ const (
 
 // NodeRole - 
 type NodeRole struct {
+	Name RoleName `json:"name" yaml:"name"` // Semantic role identifier
 	Enabled bool `json:"enabled" yaml:"enabled"` // 
 	Config map[string]interface{} `json:"config" yaml:"config"` // Role-specific configuration
-	Name RoleName `json:"name" yaml:"name"` // Semantic role identifier
 }
 
 
@@ -321,13 +321,25 @@ type ContainerHostConfig struct {
 
 
 
+// ContainerRuntime - 
+type ContainerRuntime string
+
+const (
+	ContainerRuntimeDocker ContainerRuntime = "docker"
+	ContainerRuntimeContainerd ContainerRuntime = "containerd"
+	ContainerRuntimePodman ContainerRuntime = "podman"
+)
+
+
+
+
 // ContainerWorkload - 
 type ContainerWorkload struct {
-	Volumes []VolumeMount `json:"volumes" yaml:"volumes"` // 
 	Name string `json:"name" yaml:"name"` // Container name
 	Image string `json:"image" yaml:"image"` // Container image
 	State string `json:"state" yaml:"state"` // 
 	Ports []PortMapping `json:"ports" yaml:"ports"` // 
+	Volumes []VolumeMount `json:"volumes" yaml:"volumes"` // 
 }
 
 
@@ -347,30 +359,19 @@ const (
 
 // PortMapping - 
 type PortMapping struct {
-	Host int `json:"host" yaml:"host"` // 
 	Container int `json:"container" yaml:"container"` // 
 	Protocol string `json:"protocol" yaml:"protocol"` // 
+	Host int `json:"host" yaml:"host"` // 
 }
-
-
-
-
-// ProtocolEnum - 
-type ProtocolEnum string
-
-const (
-	ProtocolEnumTcp ProtocolEnum = "tcp"
-	ProtocolEnumUdp ProtocolEnum = "udp"
-)
 
 
 
 
 // VolumeMount - 
 type VolumeMount struct {
-	Host string `json:"host" yaml:"host"` // 
 	Container string `json:"container" yaml:"container"` // 
 	ReadOnly bool `json:"read_only" yaml:"read_only"` // 
+	Host string `json:"host" yaml:"host"` // 
 }
 
 
@@ -399,18 +400,6 @@ const (
 
 
 
-// ContainerRuntime - 
-type ContainerRuntime string
-
-const (
-	ContainerRuntimeDocker ContainerRuntime = "docker"
-	ContainerRuntimeContainerd ContainerRuntime = "containerd"
-	ContainerRuntimePodman ContainerRuntime = "podman"
-)
-
-
-
-
 // NetworkTuning - Network-specific kernel parameters (semantic sysctl)
 type NetworkTuning struct {
 	MaxSynBacklog int `json:"max_syn_backlog" yaml:"max_syn_backlog"` // Maximum SYN backlog
@@ -426,13 +415,13 @@ type NetworkTuning struct {
 
 // State - 
 type State struct {
-	Files []FileConfig `json:"files" yaml:"files"` // 
-	Version Version `json:"version" yaml:"version"` // 
 	Metadata Metadata `json:"metadata" yaml:"metadata"` // 
 	Firewall FirewallConfig `json:"firewall" yaml:"firewall"` // 
 	Services []ServiceConfig `json:"services" yaml:"services"` // 
 	Sysctl map[string]string `json:"sysctl" yaml:"sysctl"` // 
 	Packages []PackageConfig `json:"packages" yaml:"packages"` // 
+	Files []FileConfig `json:"files" yaml:"files"` // 
+	Version Version `json:"version" yaml:"version"` // 
 }
 
 
@@ -440,9 +429,9 @@ type State struct {
 
 // PackageConfig - 
 type PackageConfig struct {
+	Name string `json:"name" yaml:"name"` // 
 	Version string `json:"version" yaml:"version"` // Desired version (empty means any)
 	State PackageState `json:"state" yaml:"state"` // 
-	Name string `json:"name" yaml:"name"` // 
 }
 
 
@@ -462,36 +451,37 @@ const (
 
 // FileConfig - 
 type FileConfig struct {
+	Mode string `json:"mode" yaml:"mode"` // 
+	Owner string `json:"owner" yaml:"owner"` // 
 	Group string `json:"group" yaml:"group"` // 
 	Path UnixPath `json:"path" yaml:"path"` // 
 	Content string `json:"content" yaml:"content"` // Desired file content
 	SHA256 string `json:"sha256" yaml:"sha256"` // Expected SHA256 hash
-	Mode string `json:"mode" yaml:"mode"` // 
-	Owner string `json:"owner" yaml:"owner"` // 
 }
 
 
 
 
-// FirewallConfig - 
-type FirewallConfig struct {
-	Enabled bool `json:"enabled" yaml:"enabled"` // 
-	DefaultIncoming FirewallAction `json:"default_incoming" yaml:"default_incoming"` // 
-	DefaultOutgoing string `json:"default_outgoing" yaml:"default_outgoing"` // 
-	Rules []FirewallRule `json:"rules" yaml:"rules"` // 
-}
+// DefaultOutgoingEnum - 
+type DefaultOutgoingEnum string
+
+const (
+	DefaultOutgoingEnumAllow DefaultOutgoingEnum = "allow"
+	DefaultOutgoingEnumDeny DefaultOutgoingEnum = "deny"
+	DefaultOutgoingEnumReject DefaultOutgoingEnum = "reject"
+)
 
 
 
 
 // FirewallRule - 
 type FirewallRule struct {
-	Comment string `json:"comment" yaml:"comment"` // 
 	Port Port `json:"port" yaml:"port"` // 
 	Proto Protocol `json:"proto" yaml:"proto"` // 
 	Action string `json:"action" yaml:"action"` // 
 	From string `json:"from" yaml:"from"` // 
 	To string `json:"to" yaml:"to"` // 
+	Comment string `json:"comment" yaml:"comment"` // 
 }
 
 
@@ -521,18 +511,6 @@ const (
 
 
 
-// DefaultOutgoingEnum - 
-type DefaultOutgoingEnum string
-
-const (
-	DefaultOutgoingEnumAllow DefaultOutgoingEnum = "allow"
-	DefaultOutgoingEnumDeny DefaultOutgoingEnum = "deny"
-	DefaultOutgoingEnumReject DefaultOutgoingEnum = "reject"
-)
-
-
-
-
 // ServiceConfig - 
 type ServiceConfig struct {
 	Name string `json:"name" yaml:"name"` // Service name (without .service suffix)
@@ -545,89 +523,27 @@ type ServiceConfig struct {
 
 // SystemIdentity - Immutable system identifiers for node registration and validation
 type SystemIdentity struct {
+	CompositeKey CompositeKey `json:"composite_key" yaml:"composite_key"` // Composite identifier for database indexing
 	Validation IdentityValidation `json:"validation" yaml:"validation"` // Identity validation configuration
 	Registration NodeRegistration `json:"registration" yaml:"registration"` // Controller registration metadata
 	Platform PlatformInfo `json:"platform" yaml:"platform"` // 
 	Identifiers SystemIdentifiers `json:"identifiers" yaml:"identifiers"` // Platform-specific immutable identifiers
-	CompositeKey CompositeKey `json:"composite_key" yaml:"composite_key"` // Composite identifier for database indexing
 }
-
-
-
-
-// IdentityValidation - Identity validation configuration
-type IdentityValidation struct {
-	CheckOnStartup bool `json:"check_on_startup" yaml:"check_on_startup"` // Validate identity when exporter starts
-	AllowOSMigration bool `json:"allow_os_migration" yaml:"allow_os_migration"` // Allow OS reinstall (machine-id changes, hardware UUID stays)
-	AlertOnMismatch bool `json:"alert_on_mismatch" yaml:"alert_on_mismatch"` // Send alert if identity doesn't match
-	RequireMatch bool `json:"require_match" yaml:"require_match"` // Fail if identity doesn't match config
-}
-
-
-
-
-// NodeRegistration - Controller registration metadata
-type NodeRegistration struct {
-	Registered bool `json:"registered" yaml:"registered"` // Whether node is registered with controller
-	RegisteredAt string `json:"registered_at" yaml:"registered_at"` // 
-	ControllerURL string `json:"controller_url" yaml:"controller_url"` // URL of controlling instance
-	RegistrationToken string `json:"registration_token" yaml:"registration_token"` // Token for initial registration (rotated after first use)
-	LastCheckin string `json:"last_checkin" yaml:"last_checkin"` // 
-}
-
-
-
-
-// PlatformInfo - 
-type PlatformInfo struct {
-	OSType OSType `json:"os_type" yaml:"os_type"` // Operating system type
-	OSFamily OSFamily `json:"os_family" yaml:"os_family"` // OS distribution family
-	OSVersion string `json:"os_version" yaml:"os_version"` // OS version string
-	KernelVersion string `json:"kernel_version" yaml:"kernel_version"` // Kernel version
-}
-
-
-
-
-// OSFamily - OS distribution family
-type OSFamily string
-
-const (
-	OSFamilyDebian OSFamily = "debian"
-	OSFamilyRhel OSFamily = "rhel"
-	OSFamilyArch OSFamily = "arch"
-	OSFamilyAlpine OSFamily = "alpine"
-	OSFamilyMacos OSFamily = "macos"
-	OSFamilyWindows OSFamily = "windows"
-)
-
-
-
-
-// OSType - Operating system type
-type OSType string
-
-const (
-	OSTypeLinux OSType = "linux"
-	OSTypeDarwin OSType = "darwin"
-	OSTypeWindows OSType = "windows"
-	OSTypeBsd OSType = "bsd"
-)
 
 
 
 
 // SystemIdentifiers - Platform-specific immutable identifiers
 type SystemIdentifiers struct {
-	MachineID string `json:"machine_id" yaml:"machine_id"` // systemd machine-id from /etc/machine-id
-	HardwareUUID string `json:"hardware_uuid" yaml:"hardware_uuid"` // macOS Hardware UUID
-	CollectedAt string `json:"collected_at" yaml:"collected_at"` // When these identifiers were collected
-	CollectedBy string `json:"collected_by" yaml:"collected_by"` // How identifiers were collected (probe script version)
 	PrimaryID string `json:"primary_id" yaml:"primary_id"` // Primary system identifier (machine-id or hardware UUID)
 	IDType IdentifierType `json:"id_type" yaml:"id_type"` // Type of primary identifier
-	DMIProductUUID string `json:"dmi_product_uuid" yaml:"dmi_product_uuid"` // DMI/SMBIOS product UUID from /sys/class/dmi/id/product_uuid
 	DMIBoardSerial string `json:"dmi_board_serial" yaml:"dmi_board_serial"` // Motherboard serial number
 	IOPlatformUUID string `json:"io_platform_uuid" yaml:"io_platform_uuid"` // macOS IOPlatformUUID from I/O Registry
+	HardwareUUID string `json:"hardware_uuid" yaml:"hardware_uuid"` // macOS Hardware UUID
+	MachineID string `json:"machine_id" yaml:"machine_id"` // systemd machine-id from /etc/machine-id
+	DMIProductUUID string `json:"dmi_product_uuid" yaml:"dmi_product_uuid"` // DMI/SMBIOS product UUID from /sys/class/dmi/id/product_uuid
+	CollectedAt string `json:"collected_at" yaml:"collected_at"` // When these identifiers were collected
+	CollectedBy string `json:"collected_by" yaml:"collected_by"` // How identifiers were collected (probe script version)
 }
 
 
@@ -665,11 +581,73 @@ type KeyComponent struct {
 
 
 
+// IdentityValidation - Identity validation configuration
+type IdentityValidation struct {
+	AllowOSMigration bool `json:"allow_os_migration" yaml:"allow_os_migration"` // Allow OS reinstall (machine-id changes, hardware UUID stays)
+	AlertOnMismatch bool `json:"alert_on_mismatch" yaml:"alert_on_mismatch"` // Send alert if identity doesn't match
+	RequireMatch bool `json:"require_match" yaml:"require_match"` // Fail if identity doesn't match config
+	CheckOnStartup bool `json:"check_on_startup" yaml:"check_on_startup"` // Validate identity when exporter starts
+}
+
+
+
+
+// NodeRegistration - Controller registration metadata
+type NodeRegistration struct {
+	RegistrationToken string `json:"registration_token" yaml:"registration_token"` // Token for initial registration (rotated after first use)
+	LastCheckin string `json:"last_checkin" yaml:"last_checkin"` // 
+	Registered bool `json:"registered" yaml:"registered"` // Whether node is registered with controller
+	RegisteredAt string `json:"registered_at" yaml:"registered_at"` // 
+	ControllerURL string `json:"controller_url" yaml:"controller_url"` // URL of controlling instance
+}
+
+
+
+
+// PlatformInfo - 
+type PlatformInfo struct {
+	OSType OSType `json:"os_type" yaml:"os_type"` // Operating system type
+	OSFamily OSFamily `json:"os_family" yaml:"os_family"` // OS distribution family
+	OSVersion string `json:"os_version" yaml:"os_version"` // OS version string
+	KernelVersion string `json:"kernel_version" yaml:"kernel_version"` // Kernel version
+}
+
+
+
+
+// OSType - Operating system type
+type OSType string
+
+const (
+	OSTypeLinux OSType = "linux"
+	OSTypeDarwin OSType = "darwin"
+	OSTypeWindows OSType = "windows"
+	OSTypeBsd OSType = "bsd"
+)
+
+
+
+
+// OSFamily - OS distribution family
+type OSFamily string
+
+const (
+	OSFamilyDebian OSFamily = "debian"
+	OSFamilyRhel OSFamily = "rhel"
+	OSFamilyArch OSFamily = "arch"
+	OSFamilyAlpine OSFamily = "alpine"
+	OSFamilyMacos OSFamily = "macos"
+	OSFamilyWindows OSFamily = "windows"
+)
+
+
+
+
 // WatcherConfig - 
 type WatcherConfig struct {
+	Version Version `json:"version" yaml:"version"` // 
 	Watchers Watchers `json:"watchers" yaml:"watchers"` // 
 	EventHandler EventHandler `json:"event_handler" yaml:"event_handler"` // Configuration for event processing
-	Version Version `json:"version" yaml:"version"` // 
 }
 
 
@@ -677,20 +655,11 @@ type WatcherConfig struct {
 
 // Watchers - 
 type Watchers struct {
-	Enabled bool `json:"enabled" yaml:"enabled"` // Master switch for all watchers
-	Inotify InotifyWatcher `json:"inotify" yaml:"inotify"` // 
 	Journald JournaldWatcher `json:"journald" yaml:"journald"` // 
 	Auditd AuditdWatcher `json:"auditd" yaml:"auditd"` // 
 	Dbus DBusWatcher `json:"dbus" yaml:"dbus"` // 
-}
-
-
-
-
-// InotifyWatcher - 
-type InotifyWatcher struct {
-	Enabled bool `json:"enabled" yaml:"enabled"` // 
-	Paths []UnixPath `json:"paths" yaml:"paths"` // File paths to monitor for changes
+	Enabled bool `json:"enabled" yaml:"enabled"` // Master switch for all watchers
+	Inotify InotifyWatcher `json:"inotify" yaml:"inotify"` // 
 }
 
 
@@ -719,6 +688,15 @@ type AuditdWatcher struct {
 type DBusWatcher struct {
 	Enabled bool `json:"enabled" yaml:"enabled"` // 
 	Signals []string `json:"signals" yaml:"signals"` // D-Bus signals to monitor
+}
+
+
+
+
+// InotifyWatcher - 
+type InotifyWatcher struct {
+	Enabled bool `json:"enabled" yaml:"enabled"` // 
+	Paths []UnixPath `json:"paths" yaml:"paths"` // File paths to monitor for changes
 }
 
 

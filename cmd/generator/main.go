@@ -121,6 +121,7 @@ func main() {
 
 func extractTypes(schemas map[string]*Schema) []GeneratedType {
 	var types []GeneratedType
+	seen := make(map[string]bool) // Track seen type names to avoid duplicates
 
 	for schemaName, schema := range schemas {
 		log.Printf("Extracting types from: %s", schemaName)
@@ -128,42 +129,68 @@ func extractTypes(schemas map[string]*Schema) []GeneratedType {
 		// Process definitions
 		for defName, defProp := range schema.Definitions {
 			if defProp.XGenerateEnum != "" {
-				types = append(types, GeneratedType{
-					Name:        defProp.XGenerateEnum,
-					IsEnum:      true,
-					EnumValues:  defProp.Enum,
-					Description: defProp.Description,
-				})
+				if !seen[defProp.XGenerateEnum] {
+					types = append(types, GeneratedType{
+						Name:        defProp.XGenerateEnum,
+						IsEnum:      true,
+						EnumValues:  defProp.Enum,
+						Description: defProp.Description,
+					})
+					seen[defProp.XGenerateEnum] = true
+				}
 			} else if defProp.XGenerateType != "" {
-				types = append(types, GeneratedType{
-					Name:        defProp.XGenerateType,
-					GoType:      mapSchemaTypeToGo(defProp),
-					Description: defProp.Description,
-				})
+				if !seen[defProp.XGenerateType] {
+					types = append(types, GeneratedType{
+						Name:        defProp.XGenerateType,
+						GoType:      mapSchemaTypeToGo(defProp),
+						Description: defProp.Description,
+					})
+					seen[defProp.XGenerateType] = true
+				}
 			} else if defProp.XGenerateStruct != "" {
 				// Handle struct definitions
-				types = append(types, extractStruct(defProp.XGenerateStruct, defProp.Properties, defProp.Required, defProp.Description))
+				if !seen[defProp.XGenerateStruct] {
+					types = append(types, extractStruct(defProp.XGenerateStruct, defProp.Properties, defProp.Required, defProp.Description))
+					seen[defProp.XGenerateStruct] = true
+				}
 				// Recursively extract nested types
-				types = append(types, extractNestedStructs(defProp.Properties, defProp.Required)...)
+				for _, t := range extractNestedStructs(defProp.Properties, defProp.Required) {
+					if !seen[t.Name] {
+						types = append(types, t)
+						seen[t.Name] = true
+					}
+				}
 			} else if defProp.XGenerateConst {
 				// Generate type alias for const definitions (like version)
-				types = append(types, GeneratedType{
-					Name:        toGoName(defName),
-					GoType:      mapSchemaTypeToGo(defProp),
-					Description: defProp.Description,
-				})
+				typeName := toGoName(defName)
+				if !seen[typeName] {
+					types = append(types, GeneratedType{
+						Name:        typeName,
+						GoType:      mapSchemaTypeToGo(defProp),
+						Description: defProp.Description,
+					})
+					seen[typeName] = true
+				}
 			}
 		}
 
 		// Process root schema
 		if schema.XGenerate != nil {
 			if structName, ok := schema.XGenerate["x-generate-struct"].(string); ok && structName != "" {
-				types = append(types, extractStruct(structName, schema.Properties, schema.Required, schema.Description))
+				if !seen[structName] {
+					types = append(types, extractStruct(structName, schema.Properties, schema.Required, schema.Description))
+					seen[structName] = true
+				}
 			}
 		}
 
 		// Process properties for nested structs
-		types = append(types, extractNestedStructs(schema.Properties, schema.Required)...)
+		for _, t := range extractNestedStructs(schema.Properties, schema.Required) {
+			if !seen[t.Name] {
+				types = append(types, t)
+				seen[t.Name] = true
+			}
+		}
 	}
 
 	return types
