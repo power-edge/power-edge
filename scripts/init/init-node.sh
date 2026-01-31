@@ -98,25 +98,51 @@ echo ""
 # 3. Discover Firewall Rules
 # ========================================
 echo "🛡️  Discovering firewall rules..."
+echo "  Note: Requires passwordless sudo for complete firewall discovery"
+
 if remote_exec "command -v ufw >/dev/null 2>&1" | grep -v COMMAND_FAILED >/dev/null; then
     echo "  Found UFW"
-    UFW_STATUS=$(remote_exec "sudo ufw status numbered")
-    echo "$UFW_STATUS" > "$OUTPUT_DIR/ufw-rules.txt"
+    UFW_STATUS=$(remote_exec "sudo -n ufw status numbered 2>/dev/null")
 
-    # Check if UFW is active
-    if echo "$UFW_STATUS" | grep -q "Status: active"; then
-        RULE_COUNT=$(echo "$UFW_STATUS" | grep -c '^\[' || echo "0")
-        echo "  UFW is active with $RULE_COUNT rules"
+    if [ "$UFW_STATUS" != "COMMAND_FAILED" ] && [ -n "$UFW_STATUS" ]; then
+        echo "$UFW_STATUS" > "$OUTPUT_DIR/ufw-rules.txt"
+
+        if echo "$UFW_STATUS" | grep -q "Status: active"; then
+            RULE_COUNT=$(echo "$UFW_STATUS" | grep -c '^\[' || echo "0")
+            echo "  ✓ UFW is active with $RULE_COUNT rules"
+        else
+            echo "  ✓ UFW is installed but inactive"
+        fi
     else
-        echo "  UFW is installed but inactive"
+        echo "  ⚠️  UFW found but requires sudo password (skipping rules)"
+        echo "UFW detected but requires sudo password" > "$OUTPUT_DIR/ufw-rules.txt"
     fi
 elif remote_exec "command -v firewall-cmd >/dev/null 2>&1" | grep -v COMMAND_FAILED >/dev/null; then
     echo "  Found firewalld"
-    remote_exec "sudo firewall-cmd --list-all" > "$OUTPUT_DIR/firewalld-rules.txt"
+    FIREWALLD_STATUS=$(remote_exec "sudo -n firewall-cmd --list-all 2>/dev/null")
+
+    if [ "$FIREWALLD_STATUS" != "COMMAND_FAILED" ] && [ -n "$FIREWALLD_STATUS" ]; then
+        echo "$FIREWALLD_STATUS" > "$OUTPUT_DIR/firewalld-rules.txt"
+        echo "  ✓ Firewalld rules captured"
+    else
+        echo "  ⚠️  Firewalld found but requires sudo password (skipping rules)"
+        echo "Firewalld detected but requires sudo password" > "$OUTPUT_DIR/firewalld-rules.txt"
+    fi
 else
-    echo "  No firewall detected (UFW or firewalld)"
-    echo "  Checking iptables..."
-    remote_exec "sudo iptables -L -n -v" > "$OUTPUT_DIR/iptables-rules.txt"
+    echo "  No UFW or firewalld detected, checking iptables..."
+    IPTABLES_OUTPUT=$(remote_exec "sudo -n iptables -L -n -v 2>/dev/null")
+
+    if [ "$IPTABLES_OUTPUT" != "COMMAND_FAILED" ] && [ -n "$IPTABLES_OUTPUT" ]; then
+        echo "$IPTABLES_OUTPUT" > "$OUTPUT_DIR/iptables-rules.txt"
+        RULE_COUNT=$(echo "$IPTABLES_OUTPUT" | grep -c '^Chain' || echo "0")
+        echo "  ✓ iptables rules captured ($RULE_COUNT chains)"
+    else
+        echo "  ⚠️  iptables requires sudo password (skipping)"
+        echo "No firewall rules captured - requires passwordless sudo" > "$OUTPUT_DIR/iptables-rules.txt"
+        echo ""
+        echo "  💡 To capture firewall rules, configure passwordless sudo on target:"
+        echo "     echo '$USER ALL=(ALL) NOPASSWD: /usr/sbin/ufw, /usr/sbin/iptables' | sudo tee /etc/sudoers.d/power-edge-init"
+    fi
 fi
 echo ""
 
