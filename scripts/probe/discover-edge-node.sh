@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Configuration
 SSH_HOST="${1:-}"
-OUTPUT_DIR="./discovered-config"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 if [ -z "$SSH_HOST" ]; then
     echo "Usage: $0 <ssh-host>"
@@ -13,15 +13,8 @@ if [ -z "$SSH_HOST" ]; then
     exit 1
 fi
 
-echo "🔍 Probing edge node: $SSH_HOST"
-mkdir -p "$OUTPUT_DIR"
-
-# Function to run command on remote host
-remote_exec() {
-    ssh "$SSH_HOST" "$@" 2>/dev/null || echo "COMMAND_FAILED"
-}
-
-# Test connectivity
+# Test connectivity first to get hostname
+echo "🔍 Discovering edge node: $SSH_HOST"
 echo "Testing SSH connectivity..."
 if ! ssh -o ConnectTimeout=5 "$SSH_HOST" "echo 'Connection OK'" >/dev/null 2>&1; then
     echo "❌ Cannot connect to $SSH_HOST"
@@ -31,8 +24,21 @@ if ! ssh -o ConnectTimeout=5 "$SSH_HOST" "echo 'Connection OK'" >/dev/null 2>&1;
     echo "   3. You have passwordless access"
     exit 1
 fi
-echo "✅ Connected to $SSH_HOST"
+
+# Get hostname for output directory
+REMOTE_HOSTNAME=$(ssh "$SSH_HOST" "hostname -s" 2>/dev/null || echo "unknown")
+OUTPUT_DIR="/tmp/power-edge-discovery-${REMOTE_HOSTNAME}-${TIMESTAMP}"
+
+echo "✅ Connected to $SSH_HOST (hostname: $REMOTE_HOSTNAME)"
+echo "📁 Output directory: $OUTPUT_DIR"
 echo ""
+
+mkdir -p "$OUTPUT_DIR"
+
+# Function to run command on remote host
+remote_exec() {
+    ssh "$SSH_HOST" "$@" 2>/dev/null || echo "COMMAND_FAILED"
+}
 
 # ========================================
 # 1. System Information
@@ -403,8 +409,11 @@ echo "📋 Summary:"
 cat "$OUTPUT_DIR/system-info.json" | grep -v '{' | grep -v '}' | sed 's/^/  /'
 echo ""
 echo "Next steps:"
-echo "  1. Review: $OUTPUT_DIR/generated-state.yaml"
-echo "  2. Review: $OUTPUT_DIR/generated-watcher-config.yaml"
-echo "  3. Copy to: config/nodes/$HOSTNAME/"
-echo "  4. Adjust as needed"
+echo "  1. Review configs:     ls -la $OUTPUT_DIR/"
+echo "  2. Organize:           bash scripts/probe/organize-config.sh $OUTPUT_DIR"
+echo "  3. Build and test:     make build && make run"
+echo ""
+echo "Or manually organize:"
+echo "  mkdir -p config/nodes/$HOSTNAME"
+echo "  cp $OUTPUT_DIR/generated-*.yaml config/nodes/$HOSTNAME/"
 echo ""

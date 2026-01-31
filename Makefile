@@ -77,9 +77,17 @@ docker-build: ## Build Docker image
 		--build-arg BUILD_TIME=$(BUILD_TIME) \
 		-f apps/edge-state-exporter/Dockerfile .
 
-probe: ## Run discovery probe on Dell T420
+probe: ## Run discovery probe on remote node
 	@echo "🔍 Running discovery probe..."
-	bash scripts/probe/discover-edge-node.sh stella@10.8.0.1
+	@echo "Usage: make probe SSH_HOST=user@hostname"
+	@echo "Example: make probe SSH_HOST=stella@10.8.0.1"
+	@if [ -z "$(SSH_HOST)" ]; then \
+		echo ""; \
+		echo "❌ Error: SSH_HOST not set"; \
+		echo "   Run: make probe SSH_HOST=user@hostname"; \
+		exit 1; \
+	fi
+	bash scripts/probe/discover-edge-node.sh $(SSH_HOST)
 
 install: build ## Install binary to /usr/local/bin
 	@echo "📦 Installing edge-state-exporter..."

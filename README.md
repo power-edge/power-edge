@@ -76,23 +76,26 @@ make run
 ```bash
 make probe
 # Or manually:
-bash scripts/probe/discover-edge-node.sh stella@10.8.0.1
+bash scripts/probe/discover-edge-node.sh user@your-server.local
 ```
 
-2. **Review generated configs**:
+Discovery outputs to `/tmp/power-edge-discovery-<hostname>-<timestamp>/`
+
+2. **Review and organize configs**:
 ```bash
-ls -lh ./discovered-config/
-# - generated-state.yaml      # Desired system state
+# Automatically organize by hostname
+bash scripts/probe/organize-config.sh /tmp/power-edge-discovery-stella-20240130-143000/
+
+# This creates: config/nodes/<hostname>/ with all configs
+```
+
+3. **Review the organized configs**:
+```bash
+ls -la config/nodes/stella-PowerEdge-T420/
+# - generated-state.yaml           # Desired system state
 # - generated-watcher-config.yaml  # Monitoring configuration
-# - system-info.json          # Hardware details
-# - running-services.txt      # Active systemd services
-# - sysctl-important.txt      # Kernel parameters
-```
-
-3. **Move to node configuration**:
-```bash
-mkdir -p config/nodes/your-hostname
-cp discovered-config/generated-*.yaml config/nodes/your-hostname/
+# - system-identity.yaml           # Immutable identifiers
+# - discovery-data/                # Raw discovery output
 ```
 
 4. **Build and deploy**:
