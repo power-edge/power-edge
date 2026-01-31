@@ -1,0 +1,343 @@
+# Node Identity Schema - Describes WHAT a node IS, not just what it runs
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/node-identity.v1.yaml
+
+type: object
+x-generate-struct: NodeIdentity
+x-root: true
+required:
+  - version
+  - node
+  - roles
+
+properties:
+  version:
+    type: string
+    pattern: '^[0-9]+\.[0-9]+$'
+    x-generate-field: Version
+
+  node:
+    type: object
+    x-generate-struct: NodeMetadata
+    required:
+      - hostname
+      - purpose
+    properties:
+      hostname:
+        type: string
+        x-generate-field: Hostname
+        description: Canonical hostname of the node
+      purpose:
+        type: string
+        x-generate-field: Purpose
+        description: Primary purpose of this node
+        examples:
+          - "VPN Gateway & Container Host"
+          - "Edge Router"
+          - "Development Workstation"
+      tags:
+        type: array
+        x-generate-field: Tags
+        items:
+          type: string
+        description: Semantic tags describing node capabilities
+        examples:
+          - ["vpn-gateway", "docker-host", "home-lab"]
+      hardware:
+        type: object
+        x-generate-struct: HardwareInfo
+        properties:
+          model:
+            type: string
+            x-generate-field: Model
+            description: Hardware model
+          cpu_cores:
+            type: integer
+            x-generate-field: CPUCores
+          memory_gb:
+            type: integer
+            x-generate-field: MemoryGB
+          architecture:
+            type: string
+            enum: [x86_64, arm64, armv7]
+            x-generate-enum: Architecture
+            x-generate-field: Architecture
+
+  roles:
+    type: array
+    x-generate-field: Roles
+    description: Roles this node performs (maps to actual workloads)
+    items:
+      type: object
+      x-generate-struct: NodeRole
+      required:
+        - name
+        - enabled
+      properties:
+        name:
+          type: string
+          enum:
+            - vpn-gateway
+            - container-host
+            - edge-router
+            - monitoring-target
+            - dev-workstation
+            - k8s-node
+          x-generate-enum: RoleName
+          x-generate-field: Name
+          description: Semantic role identifier
+        enabled:
+          type: boolean
+          x-generate-field: Enabled
+        config:
+          type: object
+          x-generate-field: Config
+          description: Role-specific configuration
+          additionalProperties: true
+
+  vpn_gateway:
+    type: object
+    x-generate-struct: VPNGatewayConfig
+    description: Configuration for VPN gateway role
+    properties:
+      provider:
+        type: string
+        enum: [openvpn, wireguard, tailscale]
+        x-generate-enum: VPNProvider
+        x-generate-field: Provider
+      server_config:
+        type: object
+        x-generate-struct: VPNServerConfig
+        properties:
+          network:
+            type: string
+            x-generate-field: Network
+            pattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$'
+            description: VPN network CIDR
+            examples: ["10.8.0.0/24"]
+          port:
+            type: integer
+            x-generate-field: Port
+            minimum: 1
+            maximum: 65535
+          protocol:
+            type: string
+            enum: [udp, tcp]
+            x-generate-field: Protocol
+      routing:
+        type: object
+        x-generate-struct: VPNRouting
+        properties:
+          ip_forward:
+            type: boolean
+            x-generate-field: IPForward
+            description: Enable IP forwarding (net.ipv4.ip_forward)
+          masquerade:
+            type: boolean
+            x-generate-field: Masquerade
+            description: Enable NAT masquerading for VPN clients
+          routes:
+            type: array
+            x-generate-field: Routes
+            items:
+              type: object
+              x-generate-struct: VPNRoute
+              properties:
+                network:
+                  type: string
+                  x-generate-field: Network
+                  description: Destination network
+                via:
+                  type: string
+                  x-generate-field: Via
+                  description: Gateway or interface
+
+  container_host:
+    type: object
+    x-generate-struct: ContainerHostConfig
+    description: Configuration for container host role
+    properties:
+      runtime:
+        type: string
+        enum: [docker, containerd, podman]
+        x-generate-enum: ContainerRuntime
+        x-generate-field: Runtime
+      workloads:
+        type: array
+        x-generate-field: Workloads
+        items:
+          type: object
+          x-generate-struct: ContainerWorkload
+          required:
+            - name
+            - image
+          properties:
+            name:
+              type: string
+              x-generate-field: Name
+              description: Container name
+            image:
+              type: string
+              x-generate-field: Image
+              description: Container image
+            state:
+              type: string
+              enum: [running, stopped, absent]
+              x-generate-field: State
+            ports:
+              type: array
+              x-generate-field: Ports
+              items:
+                type: object
+                x-generate-struct: PortMapping
+                properties:
+                  host:
+                    type: integer
+                    x-generate-field: Host
+                  container:
+                    type: integer
+                    x-generate-field: Container
+                  protocol:
+                    type: string
+                    enum: [tcp, udp]
+                    x-generate-field: Protocol
+            volumes:
+              type: array
+              x-generate-field: Volumes
+              items:
+                type: object
+                x-generate-struct: VolumeMount
+                properties:
+                  host:
+                    type: string
+                    x-generate-field: Host
+                  container:
+                    type: string
+                    x-generate-field: Container
+                  read_only:
+                    type: boolean
+                    x-generate-field: ReadOnly
+      networks:
+        type: array
+        x-generate-field: Networks
+        items:
+          type: object
+          x-generate-struct: ContainerNetwork
+          properties:
+            name:
+              type: string
+              x-generate-field: Name
+            driver:
+              type: string
+              enum: [bridge, host, overlay, macvlan]
+              x-generate-enum: NetworkDriver
+              x-generate-field: Driver
+            subnet:
+              type: string
+              x-generate-field: Subnet
+              description: Network subnet CIDR
+
+  network_tuning:
+    type: object
+    x-generate-struct: NetworkTuning
+    description: Network-specific kernel parameters (semantic sysctl)
+    properties:
+      ip_forward:
+        type: boolean
+        x-generate-field: IPForward
+        description: Enable IP forwarding (net.ipv4.ip_forward)
+      bridge_nf_call_iptables:
+        type: boolean
+        x-generate-field: BridgeNfCallIptables
+        description: Enable bridge netfilter (net.bridge.bridge-nf-call-iptables)
+      tcp_keepalive_time:
+        type: integer
+        x-generate-field: TCPKeepaliveTime
+        description: TCP keepalive time in seconds
+      max_syn_backlog:
+        type: integer
+        x-generate-field: MaxSynBacklog
+        description: Maximum SYN backlog
+      rmem_max:
+        type: integer
+        x-generate-field: RmemMax
+        description: Maximum receive buffer size
+      wmem_max:
+        type: integer
+        x-generate-field: WmemMax
+        description: Maximum send buffer size
+
+  system_tuning:
+    type: object
+    x-generate-struct: SystemTuning
+    description: System-level kernel parameters (semantic sysctl)
+    properties:
+      swappiness:
+        type: integer
+        x-generate-field: Swappiness
+        minimum: 0
+        maximum: 100
+        description: VM swappiness (vm.swappiness)
+      inotify_max_user_watches:
+        type: integer
+        x-generate-field: InotifyMaxUserWatches
+        description: Maximum inotify watches (fs.inotify.max_user_watches)
+      kernel_panic:
+        type: integer
+        x-generate-field: KernelPanic
+        description: Seconds to wait before rebooting on panic
+
+  access_control:
+    type: object
+    x-generate-struct: AccessControl
+    description: Remote access and firewall configuration
+    properties:
+      ssh:
+        type: object
+        x-generate-struct: SSHConfig
+        properties:
+          enabled:
+            type: boolean
+            x-generate-field: Enabled
+          port:
+            type: integer
+            x-generate-field: Port
+            default: 22
+          password_auth:
+            type: boolean
+            x-generate-field: PasswordAuth
+            description: Allow password authentication
+          root_login:
+            type: boolean
+            x-generate-field: RootLogin
+            description: Allow root login
+      firewall:
+        type: object
+        x-generate-struct: FirewallConfig
+        properties:
+          enabled:
+            type: boolean
+            x-generate-field: Enabled
+          provider:
+            type: string
+            enum: [ufw, firewalld, iptables]
+            x-generate-enum: FirewallProvider
+            x-generate-field: Provider
+          default_policy:
+            type: object
+            x-generate-struct: FirewallDefaultPolicy
+            properties:
+              incoming:
+                type: string
+                enum: [allow, deny, reject]
+                x-generate-field: Incoming
+              outgoing:
+                type: string
+                enum: [allow, deny, reject]
+                x-generate-field: Outgoing
+          allowed_services:
+            type: array
+            x-generate-field: AllowedServices
+            items:
+              type: string
+            description: Services to allow (ssh, http, https, openvpn, etc.)

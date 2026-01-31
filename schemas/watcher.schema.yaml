@@ -1,0 +1,169 @@
+# Watcher schema - defines real-time monitoring configuration
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/watcher.v1.yaml
+
+allOf:
+  - $ref: "core.schema.yaml"
+
+type: object
+x-generate-struct: WatcherConfig
+x-root: true
+required:
+  - version
+  - watchers
+
+properties:
+  version:
+    $ref: "core.schema.yaml#/definitions/version"
+
+  watchers:
+    type: object
+    x-generate-struct: Watchers
+    required: [enabled]
+    properties:
+      enabled:
+        type: boolean
+        x-generate-field: Enabled
+        description: Master switch for all watchers
+
+      inotify:
+        type: object
+        x-generate-struct: InotifyWatcher
+        x-watcher:
+          type: inotify
+          implementation: pkg/watcher/inotify.go
+          setup: |
+            watcher, err := fsnotify.NewWatcher()
+            for _, path := range config.Watchers.Inotify.Paths {
+              watcher.Add(path)
+            }
+          event_handler: |
+            case event := <-watcher.Events:
+              if event.Op&fsnotify.Write == fsnotify.Write {
+                emit(Event{Type: FileModified, Path: event.Name})
+              }
+        properties:
+          enabled:
+            type: boolean
+            x-generate-field: Enabled
+          paths:
+            type: array
+            x-generate-field: Paths
+            items:
+              $ref: "core.schema.yaml#/definitions/unix_path"
+            description: File paths to monitor for changes
+
+      journald:
+        type: object
+        x-generate-struct: JournaldWatcher
+        x-watcher:
+          type: journald
+          implementation: pkg/watcher/journald.go
+          setup: |
+            journal, err := sdjournal.NewJournal()
+            journal.SeekTail()
+            for _, unit := range config.Watchers.Journald.Units {
+              journal.AddMatch("_SYSTEMD_UNIT=" + unit)
+            }
+          event_handler: |
+            entry, err := journal.Next()
+            emit(Event{Type: ServiceLog, Unit: entry["_SYSTEMD_UNIT"]})
+        properties:
+          enabled:
+            type: boolean
+            x-generate-field: Enabled
+          units:
+            type: array
+            x-generate-field: Units
+            items:
+              $ref: "core.schema.yaml#/definitions/service_unit"
+            description: Systemd units to monitor logs
+
+      auditd:
+        type: object
+        x-generate-struct: AuditdWatcher
+        x-watcher:
+          type: auditd
+          implementation: pkg/watcher/auditd.go
+          setup: |
+            # Install auditd rules for command execution
+            for cmd in config.Watchers.Auditd.Commands {
+              auditctl -w /usr/bin/$cmd -p x -k power-edge
+            }
+            # Tail audit log
+            tail -F /var/log/audit/audit.log | grep power-edge
+          event_handler: |
+            Parse audit log line
+            emit(Event{Type: CommandExecuted, Command: cmd})
+        properties:
+          enabled:
+            type: boolean
+            x-generate-field: Enabled
+          commands:
+            type: array
+            x-generate-field: Commands
+            items:
+              $ref: "core.schema.yaml#/definitions/command"
+            description: Commands to audit for execution
+          syscalls:
+            type: array
+            x-generate-field: Syscalls
+            items:
+              type: string
+            description: Syscalls to monitor (e.g., execve, open, connect)
+
+      dbus:
+        type: object
+        x-generate-struct: DBusWatcher
+        x-watcher:
+          type: dbus
+          implementation: pkg/watcher/dbus.go
+          setup: |
+            conn, err := dbus.SystemBus()
+            conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0,
+              "type='signal',interface='org.freedesktop.systemd1.Manager'")
+          event_handler: |
+            signal := <-conn.Signal()
+            if signal.Name == "org.freedesktop.systemd1.Manager.UnitNew" {
+              emit(Event{Type: UnitStateChanged})
+            }
+        properties:
+          enabled:
+            type: boolean
+            x-generate-field: Enabled
+          signals:
+            type: array
+            x-generate-field: Signals
+            items:
+              type: string
+            description: D-Bus signals to monitor
+            default:
+              - "org.freedesktop.systemd1.Manager.UnitNew"
+              - "org.freedesktop.systemd1.Manager.JobRemoved"
+
+  event_handler:
+    type: object
+    x-generate-struct: EventHandler
+    description: Configuration for event processing
+    properties:
+      buffer_size:
+        type: integer
+        x-generate-field: BufferSize
+        minimum: 1
+        maximum: 10000
+        default: 100
+        description: Event channel buffer size
+      debounce_ms:
+        type: integer
+        x-generate-field: DebounceMs
+        minimum: 0
+        maximum: 60000
+        default: 1000
+        description: Milliseconds to debounce rapid events
+      batch_size:
+        type: integer
+        x-generate-field: BatchSize
+        minimum: 1
+        maximum: 1000
+        default: 10
+        description: Max events to batch before processing

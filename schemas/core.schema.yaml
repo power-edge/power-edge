@@ -1,0 +1,78 @@
+# Core primitive types used across all schemas
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/core.v1.yaml
+
+definitions:
+  version:
+    type: string
+    pattern: '^[0-9]+\.[0-9]+$'
+    description: Schema version in MAJOR.MINOR format
+    x-generate-const: true
+    examples:
+      - "1.0"
+
+  metadata:
+    type: object
+    x-generate-struct: Metadata
+    required:
+      - site
+      - environment
+    properties:
+      site:
+        type: string
+        description: Unique site identifier (typically hostname)
+        x-generate-field: Site
+      environment:
+        type: string
+        enum: [production, staging, development, home-lab]
+        x-generate-field: Environment
+      description:
+        type: string
+        x-generate-field: Description
+      labels:
+        type: object
+        additionalProperties:
+          type: string
+        x-generate-field: Labels
+      annotations:
+        type: object
+        additionalProperties:
+          type: string
+        x-generate-field: Annotations
+
+  port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    x-generate-type: Port
+    description: Valid TCP/UDP port number
+
+  protocol:
+    type: string
+    enum: [tcp, udp, icmp]
+    x-generate-enum: Protocol
+    description: Network protocol
+
+  service_state:
+    type: string
+    enum: [running, stopped, disabled]
+    x-generate-enum: ServiceState
+    description: Systemd service state
+
+  unix_path:
+    type: string
+    pattern: '^/'
+    x-generate-type: UnixPath
+    description: Absolute Unix filesystem path
+
+  command:
+    type: string
+    minLength: 1
+    x-generate-type: Command
+    description: Shell command or binary name
+
+  service_unit:
+    type: string
+    pattern: '^[a-zA-Z0-9_-]+\.(service|socket|timer|target)$'
+    x-generate-type: ServiceUnit
+    description: Systemd unit name

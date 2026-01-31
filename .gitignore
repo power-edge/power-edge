@@ -1,0 +1,42 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+coverage.html
+coverage.out
+
+# Go workspace
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+
+# Secrets and sensitive configs (optional - uncomment if needed)
+# config/nodes/*/system-identity.yaml
+# config/nodes/*/identity.yaml
+
+# Discovered configs (regenerate as needed)
+discovered-config/
+
+# Local development
+.env
+.env.local
+*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~

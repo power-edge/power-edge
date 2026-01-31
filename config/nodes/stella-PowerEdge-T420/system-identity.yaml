@@ -1,0 +1,37 @@
+# System Identity - Immutable node identification
+# Generated: 2026-01-30T23:15:05Z
+
+platform:
+  os_type: linux
+  os_family: debian
+  os_version: "24.04"
+  kernel_version: "6.14.0-35-generic"
+
+identifiers:
+  primary_id: "a5bc498e58b74733905edbb8c8aedf4e"
+  id_type: machine-id
+  machine_id: "a5bc498e58b74733905edbb8c8aedf4e"
+  collected_at: "2026-01-30T23:15:05Z"
+  collected_by: "probe-v1.0.0"
+
+composite_key:
+  key: "linux:a5bc498e58b74733905edbb8c8aedf4e"
+  components:
+    - name: os_type
+      value: "linux"
+    - name: primary_id
+      value: "a5bc498e58b74733905edbb8c8aedf4e"
+  hash: "e8ccc88d6fab54001cbbdbca24262b2e35c56022b31dd48a3a44985fb4696ac3"
+
+validation:
+  require_match: true
+  check_on_startup: true
+  allow_os_migration: false
+  alert_on_mismatch: true
+
+registration:
+  registered: false
+  registered_at: ""
+  controller_url: ""
+  registration_token: ""
+  last_checkin: ""

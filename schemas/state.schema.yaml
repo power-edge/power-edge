@@ -1,0 +1,185 @@
+# State schema - defines desired system state
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/state.v1.yaml
+
+allOf:
+  - $ref: "core.schema.yaml"
+
+type: object
+x-generate-struct: State
+x-root: true
+required:
+  - version
+  - metadata
+
+properties:
+  version:
+    $ref: "core.schema.yaml#/definitions/version"
+
+  metadata:
+    $ref: "core.schema.yaml#/definitions/metadata"
+
+  firewall:
+    type: object
+    x-generate-struct: FirewallConfig
+    x-checker:
+      type: ufw
+      check_command: "sudo ufw status numbered"
+      validate: |
+        Parse UFW output and compare rules
+    properties:
+      enabled:
+        type: boolean
+        x-generate-field: Enabled
+        x-checker:
+          command: "sudo ufw status | grep -q 'Status: active'"
+          expect: true
+      default_incoming:
+        type: string
+        enum: [allow, deny, reject]
+        x-generate-enum: FirewallAction
+        x-generate-field: DefaultIncoming
+      default_outgoing:
+        type: string
+        enum: [allow, deny, reject]
+        x-generate-field: DefaultOutgoing
+      rules:
+        type: array
+        x-generate-field: Rules
+        items:
+          type: object
+          x-generate-struct: FirewallRule
+          required: [port, proto, action]
+          properties:
+            port:
+              $ref: "core.schema.yaml#/definitions/port"
+              x-generate-field: Port
+            proto:
+              $ref: "core.schema.yaml#/definitions/protocol"
+              x-generate-field: Proto
+            action:
+              type: string
+              enum: [allow, deny, reject]
+              x-generate-field: Action
+            from:
+              type: string
+              x-generate-field: From
+              default: "any"
+            to:
+              type: string
+              x-generate-field: To
+              default: "any"
+            comment:
+              type: string
+              x-generate-field: Comment
+
+  services:
+    type: array
+    x-generate-field: Services
+    x-checker:
+      type: systemd
+      check_all: true
+    items:
+      type: object
+      x-generate-struct: ServiceConfig
+      required: [name, state]
+      properties:
+        name:
+          type: string
+          x-generate-field: Name
+          description: Service name (without .service suffix)
+        state:
+          $ref: "core.schema.yaml#/definitions/service_state"
+          x-generate-field: State
+          x-checker:
+            command: "systemctl is-active {name}"
+            expect_map:
+              running: "active"
+              stopped: "inactive"
+              disabled: "disabled"
+        enabled:
+          type: boolean
+          x-generate-field: Enabled
+          x-checker:
+            command: "systemctl is-enabled {name}"
+            expect_map:
+              true: "enabled"
+              false: "disabled"
+
+  sysctl:
+    type: object
+    x-generate-field: Sysctl
+    x-generate-map: "map[string]string"
+    x-checker:
+      type: sysctl
+      check_command: "sysctl -n {key}"
+      expect: "{value}"
+    additionalProperties:
+      type: string
+    examples:
+      - net.ipv4.ip_forward: "1"
+        vm.swappiness: "60"
+
+  packages:
+    type: array
+    x-generate-field: Packages
+    x-checker:
+      type: package
+      debian_command: "dpkg -l | grep -q '^ii  {name}'"
+      rhel_command: "rpm -q {name}"
+    items:
+      type: object
+      x-generate-struct: PackageConfig
+      required: [name]
+      properties:
+        name:
+          type: string
+          x-generate-field: Name
+        version:
+          type: string
+          x-generate-field: Version
+          description: Desired version (empty means any)
+        state:
+          type: string
+          enum: [present, absent, latest]
+          x-generate-enum: PackageState
+          x-generate-field: State
+          default: present
+
+  files:
+    type: array
+    x-generate-field: Files
+    x-checker:
+      type: file
+      check_exists: "test -f {path}"
+      check_content: "sha256sum {path}"
+    items:
+      type: object
+      x-generate-struct: FileConfig
+      required: [path]
+      properties:
+        path:
+          $ref: "core.schema.yaml#/definitions/unix_path"
+          x-generate-field: Path
+        content:
+          type: string
+          x-generate-field: Content
+          description: Desired file content
+        sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          x-generate-field: SHA256
+          description: Expected SHA256 hash
+        mode:
+          type: string
+          pattern: '^0[0-7]{3}$'
+          x-generate-field: Mode
+          default: "0644"
+        owner:
+          type: string
+          x-generate-field: Owner
+          default: root
+        group:
+          type: string
+          x-generate-field: Group
+          default: root

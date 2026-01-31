@@ -1,0 +1,25 @@
+version: "1.0"
+metadata:
+  site: "stella-PowerEdge-T420"
+  environment: "home-lab"
+  description: "Dell T420 Home Server - Auto-discovered 2026-01-30T22:41:28Z"
+
+
+services:
+  - name: docker
+    state: running
+    enabled: true
+  - name: openvpn@server
+    state: running
+    enabled: true
+  - name: ssh
+    state: running
+    enabled: true
+
+sysctl:
+  net.ipv4.ip_forward: "1"
+  net.bridge.bridge-nf-call-iptables: "1"
+  vm.swappiness: "60"
+  fs.inotify.max_user_watches: "65536"
+  kernel.panic: "10"
+  net.ipv4.tcp_keepalive_time: "7200"

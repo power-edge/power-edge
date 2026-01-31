@@ -1,0 +1,90 @@
+# Node Identity Configuration - Dell PowerEdge T420
+# This describes WHAT this node IS, not just what services run on it
+
+version: "1.0"
+
+node:
+  hostname: stella-PowerEdge-T420
+  purpose: "VPN Gateway & Container Host"
+  tags:
+    - vpn-gateway
+    - docker-host
+    - home-lab
+    - edge-router
+  hardware:
+    model: "Dell PowerEdge T420"
+    cpu_cores: 24
+    memory_gb: 251
+    architecture: x86_64
+
+# Roles define the semantic purpose of this node
+roles:
+  - name: vpn-gateway
+    enabled: true
+    config:
+      provider: openvpn
+      primary: true
+  - name: container-host
+    enabled: true
+    config:
+      runtime: docker
+      workload_type: services
+  - name: monitoring-target
+    enabled: true
+    config:
+      prometheus_port: 9100
+
+# VPN Gateway Configuration
+vpn_gateway:
+  provider: openvpn
+  server_config:
+    network: "10.8.0.0/24"
+    port: 1194
+    protocol: udp
+  routing:
+    ip_forward: true
+    masquerade: true
+    routes:
+      - network: "192.168.1.0/24"
+        via: "eth0"
+
+# Container Host Configuration
+container_host:
+  runtime: docker
+  workloads:
+    # Currently no specific containers defined - auto-discovered from docker ps
+    # Future: Define expected containers here
+  networks:
+    - name: bridge
+      driver: bridge
+      subnet: "172.17.0.0/16"
+
+# Network Tuning (semantic sysctl)
+network_tuning:
+  ip_forward: true
+  bridge_nf_call_iptables: true
+  tcp_keepalive_time: 7200  # 2 hours
+
+# System Tuning (semantic sysctl)
+system_tuning:
+  swappiness: 60
+  inotify_max_user_watches: 65536
+  kernel_panic: 10
+
+# Access Control
+access_control:
+  ssh:
+    enabled: true
+    port: 22
+    password_auth: false
+    root_login: false
+  firewall:
+    enabled: false  # Currently no UFW/firewalld detected
+    provider: ufw
+    default_policy:
+      incoming: deny
+      outgoing: allow
+    allowed_services:
+      - ssh
+      - openvpn
+      - http   # For Prometheus metrics

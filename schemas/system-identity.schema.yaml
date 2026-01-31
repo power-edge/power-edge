@@ -1,0 +1,207 @@
+# System Identity Schema - Immutable node identification
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/system-identity.v1.yaml
+
+type: object
+x-generate-struct: SystemIdentity
+description: Immutable system identifiers for node registration and validation
+
+required:
+  - platform
+  - identifiers
+
+properties:
+  platform:
+    type: object
+    x-generate-struct: PlatformInfo
+    required:
+      - os_type
+      - os_family
+    properties:
+      os_type:
+        type: string
+        enum: [linux, darwin, windows, bsd]
+        x-generate-enum: OSType
+        x-generate-field: OSType
+        description: Operating system type
+      os_family:
+        type: string
+        enum: [debian, rhel, arch, alpine, macos, windows]
+        x-generate-enum: OSFamily
+        x-generate-field: OSFamily
+        description: OS distribution family
+      os_version:
+        type: string
+        x-generate-field: OSVersion
+        description: OS version string
+      kernel_version:
+        type: string
+        x-generate-field: KernelVersion
+        description: Kernel version
+
+  identifiers:
+    type: object
+    x-generate-struct: SystemIdentifiers
+    description: Platform-specific immutable identifiers
+    required:
+      - primary_id
+      - id_type
+    properties:
+      primary_id:
+        type: string
+        x-generate-field: PrimaryID
+        description: Primary system identifier (machine-id or hardware UUID)
+      id_type:
+        type: string
+        enum: [machine-id, hardware-uuid, io-platform-uuid, product-uuid]
+        x-generate-enum: IdentifierType
+        x-generate-field: IDType
+        description: Type of primary identifier
+
+      # Linux-specific
+      machine_id:
+        type: string
+        pattern: '^[a-f0-9]{32}$'
+        x-generate-field: MachineID
+        description: systemd machine-id from /etc/machine-id
+      dmi_product_uuid:
+        type: string
+        pattern: '^[A-F0-9]{8}-([A-F0-9]{4}-){3}[A-F0-9]{12}$'
+        x-generate-field: DMIProductUUID
+        description: DMI/SMBIOS product UUID from /sys/class/dmi/id/product_uuid
+      dmi_board_serial:
+        type: string
+        x-generate-field: DMIBoardSerial
+        description: Motherboard serial number
+
+      # macOS-specific
+      io_platform_uuid:
+        type: string
+        pattern: '^[A-F0-9]{8}-([A-F0-9]{4}-){3}[A-F0-9]{12}$'
+        x-generate-field: IOPlatformUUID
+        description: macOS IOPlatformUUID from I/O Registry
+      hardware_uuid:
+        type: string
+        pattern: '^[A-F0-9]{8}-([A-F0-9]{4}-){3}[A-F0-9]{12}$'
+        x-generate-field: HardwareUUID
+        description: macOS Hardware UUID
+
+      # Validation metadata
+      collected_at:
+        type: string
+        format: date-time
+        x-generate-field: CollectedAt
+        description: When these identifiers were collected
+      collected_by:
+        type: string
+        x-generate-field: CollectedBy
+        description: How identifiers were collected (probe script version)
+
+  composite_key:
+    type: object
+    x-generate-struct: CompositeKey
+    description: Composite identifier for database indexing
+    required:
+      - key
+      - components
+    properties:
+      key:
+        type: string
+        x-generate-field: Key
+        description: Concatenated composite key (os_type:primary_id)
+        examples:
+          - "linux:ab1234567890cd1234567890ef123456"
+          - "darwin:12345678-ABCD-1234-ABCD-1234567890AB"
+      components:
+        type: array
+        x-generate-field: Components
+        items:
+          type: object
+          x-generate-struct: KeyComponent
+          properties:
+            name:
+              type: string
+              x-generate-field: Name
+              description: Component name (os_type, machine_id, etc.)
+            value:
+              type: string
+              x-generate-field: Value
+              description: Component value
+      hash:
+        type: string
+        pattern: '^[a-f0-9]{64}$'
+        x-generate-field: Hash
+        description: SHA256 hash of composite key for indexing
+
+  validation:
+    type: object
+    x-generate-struct: IdentityValidation
+    description: Identity validation configuration
+    properties:
+      require_match:
+        type: boolean
+        x-generate-field: RequireMatch
+        default: true
+        description: Fail if identity doesn't match config
+      check_on_startup:
+        type: boolean
+        x-generate-field: CheckOnStartup
+        default: true
+        description: Validate identity when exporter starts
+      allow_os_migration:
+        type: boolean
+        x-generate-field: AllowOSMigration
+        default: false
+        description: Allow OS reinstall (machine-id changes, hardware UUID stays)
+      alert_on_mismatch:
+        type: boolean
+        x-generate-field: AlertOnMismatch
+        default: true
+        description: Send alert if identity doesn't match
+
+  registration:
+    type: object
+    x-generate-struct: NodeRegistration
+    description: Controller registration metadata
+    properties:
+      registered:
+        type: boolean
+        x-generate-field: Registered
+        description: Whether node is registered with controller
+      registered_at:
+        type: string
+        format: date-time
+        x-generate-field: RegisteredAt
+      controller_url:
+        type: string
+        format: uri
+        x-generate-field: ControllerURL
+        description: URL of controlling instance
+      registration_token:
+        type: string
+        x-generate-field: RegistrationToken
+        description: Token for initial registration (rotated after first use)
+      last_checkin:
+        type: string
+        format: date-time
+        x-generate-field: LastCheckin
+
+# Example usage for database schema:
+#
+# CREATE TABLE nodes (
+#   composite_key VARCHAR(128) PRIMARY KEY,  -- "linux:ab123...ef123"
+#   composite_hash CHAR(64) UNIQUE,          -- SHA256 of composite_key
+#   os_type VARCHAR(16) NOT NULL,            -- "linux", "darwin"
+#   primary_id VARCHAR(128) NOT NULL,        -- machine-id or hardware UUID
+#   hostname VARCHAR(255),                   -- Current hostname (mutable)
+#   registered_at TIMESTAMP NOT NULL,
+#   last_checkin TIMESTAMP,
+#   INDEX idx_primary_id (primary_id),
+#   INDEX idx_hostname (hostname)
+# );
+#
+# -- Query by hardware even if OS was reinstalled:
+# SELECT * FROM nodes WHERE primary_id = 'hardware-uuid-here';
+#
+# -- Query by composite (strict match):
+# SELECT * FROM nodes WHERE composite_key = 'linux:machine-id-here';
