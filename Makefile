@@ -9,7 +9,10 @@ BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 OUTPUT_DIR = bin
 SCHEMA_DIR = schemas
 CONFIG_DIR = config/nodes/stella-PowerEdge-T420
-BINARY_NAME = power-edge
+
+# Binary names
+CLIENT_BINARY = power-edge-client
+SERVER_BINARY = power-edge-server
 
 # Build flags
 LDFLAGS = -X main.Version=$(VERSION) \
@@ -26,19 +29,29 @@ help: ## Show this help message
 
 generate: ## Generate Go code from schemas
 	@echo "🔄 Generating code from schemas..."
-	go run apps/edge-state-exporter/cmd/generator/main.go \
+	go run cmd/generator/main.go \
 		-schema-dir=$(SCHEMA_DIR) \
-		-output-dir=apps/edge-state-exporter/pkg/config
+		-output-dir=pkg/config
 	@echo "✅ Code generation complete"
 
-build: generate ## Build the power-edge binary
-	@echo "🔨 Building $(BINARY_NAME)..."
+build: build-client build-server ## Build all binaries
+
+build-client: generate ## Build the client binary
+	@echo "🔨 Building $(CLIENT_BINARY)..."
 	@mkdir -p $(OUTPUT_DIR)
 	go build -ldflags "$(LDFLAGS)" \
-		-o $(OUTPUT_DIR)/$(BINARY_NAME) \
-		apps/edge-state-exporter/cmd/exporter/main.go
-	@echo "✅ Build complete: $(OUTPUT_DIR)/$(BINARY_NAME)"
-	@$(OUTPUT_DIR)/$(BINARY_NAME) -version
+		-o $(OUTPUT_DIR)/$(CLIENT_BINARY) \
+		./cmd/power-edge-client
+	@echo "✅ Build complete: $(OUTPUT_DIR)/$(CLIENT_BINARY)"
+	@$(OUTPUT_DIR)/$(CLIENT_BINARY) -version
+
+build-server: ## Build the server binary
+	@echo "🔨 Building $(SERVER_BINARY)..."
+	@mkdir -p $(OUTPUT_DIR)
+	go build -ldflags "$(LDFLAGS)" \
+		-o $(OUTPUT_DIR)/$(SERVER_BINARY) \
+		./cmd/power-edge-server
+	@echo "✅ Build complete: $(OUTPUT_DIR)/$(SERVER_BINARY)"
 
 test: ## Run tests
 	@echo "🧪 Running tests..."
@@ -52,20 +65,20 @@ lint: ## Run linters
 clean: ## Clean build artifacts
 	@echo "🧹 Cleaning..."
 	rm -rf $(OUTPUT_DIR)
-	rm -f apps/edge-state-exporter/pkg/config/generated.go
+	rm -f pkg/config/generated.go
 	rm -rf /tmp/power-edge-init-*
 
-run: build ## Build and run locally
-	@echo "🚀 Running $(BINARY_NAME)..."
-	$(OUTPUT_DIR)/$(BINARY_NAME) \
+run: build-client ## Build and run client locally
+	@echo "🚀 Running $(CLIENT_BINARY)..."
+	$(OUTPUT_DIR)/$(CLIENT_BINARY) \
 		-state-config=$(CONFIG_DIR)/state.yaml \
 		-watcher-config=$(CONFIG_DIR)/watcher.yaml \
 		-listen=:9100 \
 		-check-interval=30s
 
-run-dev: ## Run in development mode (without building)
-	@echo "🚀 Running in dev mode..."
-	go run -ldflags "$(LDFLAGS)" apps/edge-state-exporter/cmd/exporter/main.go \
+run-dev: ## Run client in development mode (without building)
+	@echo "🚀 Running client in dev mode..."
+	go run -ldflags "$(LDFLAGS)" ./cmd/power-edge-client \
 		-state-config=$(CONFIG_DIR)/state.yaml \
 		-watcher-config=$(CONFIG_DIR)/watcher.yaml \
 		-listen=:9100 \
@@ -77,7 +90,7 @@ docker-build: ## Build Docker image
 		--build-arg VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 		--build-arg BUILD_TIME=$(BUILD_TIME) \
-		-f apps/edge-state-exporter/Dockerfile .
+		-f Dockerfile .
 
 init: ## Initialize node configuration from remote server
 	@echo "🔍 Initializing node configuration..."
@@ -91,10 +104,31 @@ init: ## Initialize node configuration from remote server
 	fi
 	bash scripts/probe/init-node.sh $(SSH_HOST)
 
-install: build ## Install binary to /usr/local/bin
-	@echo "📦 Installing $(BINARY_NAME)..."
-	sudo cp $(OUTPUT_DIR)/$(BINARY_NAME) /usr/local/bin/
-	@echo "✅ Installed to /usr/local/bin/$(BINARY_NAME)"
+install: build ## Install binaries to /usr/local/bin (local machine)
+	@echo "📦 Installing binaries..."
+	sudo cp $(OUTPUT_DIR)/$(CLIENT_BINARY) /usr/local/bin/
+	sudo cp $(OUTPUT_DIR)/$(SERVER_BINARY) /usr/local/bin/
+	@echo "✅ Installed:"
+	@echo "   /usr/local/bin/$(CLIENT_BINARY)"
+	@echo "   /usr/local/bin/$(SERVER_BINARY)"
+
+deploy: build-client ## Deploy client to remote node via SSH
+	@echo "🚀 Deploying to remote node..."
+	@echo "Usage: make deploy SSH_HOST=user@hostname NODE_CONFIG=config/nodes/hostname"
+	@echo "Example: make deploy SSH_HOST=stella@10.8.0.1 NODE_CONFIG=config/nodes/stella-PowerEdge-T420"
+	@if [ -z "$(SSH_HOST)" ]; then \
+		echo ""; \
+		echo "❌ Error: SSH_HOST not set"; \
+		echo "   Run: make deploy SSH_HOST=user@hostname NODE_CONFIG=config/nodes/hostname"; \
+		exit 1; \
+	fi
+	@if [ -z "$(NODE_CONFIG)" ]; then \
+		echo ""; \
+		echo "❌ Error: NODE_CONFIG not set"; \
+		echo "   Run: make deploy SSH_HOST=user@hostname NODE_CONFIG=config/nodes/hostname"; \
+		exit 1; \
+	fi
+	bash scripts/deploy/install-remote.sh $(SSH_HOST) $(NODE_CONFIG)
 
 version: ## Show version info
 	@echo "Version:    $(VERSION)"
