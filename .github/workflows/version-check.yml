@@ -1,0 +1,154 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  version-validation:
+    name: Validate Version Bump
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for git diff
+
+      - name: Get PR title and labels
+        id: pr-info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            core.setOutput('title', pr.title);
+            core.setOutput('labels', pr.labels.map(l => l.name).join(','));
+
+      - name: Check for version bump indicator
+        id: check-version
+        run: |
+          PR_TITLE="${{ steps.pr-info.outputs.title }}"
+          PR_LABELS="${{ steps.pr-info.outputs.labels }}"
+
+          # Check if PR title indicates version
+          if echo "$PR_TITLE" | grep -qiE '(v[0-9]+\.[0-9]+\.[0-9]+|bump version|release)'; then
+            echo "version_indicated=true" >> $GITHUB_OUTPUT
+            VERSION=$(echo "$PR_TITLE" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "version_indicated=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check labels
+          if echo "$PR_LABELS" | grep -qE '(major|minor|patch)'; then
+            echo "bump_type_labeled=true" >> $GITHUB_OUTPUT
+            if echo "$PR_LABELS" | grep -q 'major'; then
+              echo "expected_bump=MAJOR" >> $GITHUB_OUTPUT
+            elif echo "$PR_LABELS" | grep -q 'minor'; then
+              echo "expected_bump=MINOR" >> $GITHUB_OUTPUT
+            elif echo "$PR_LABELS" | grep -q 'patch'; then
+              echo "expected_bump=PATCH" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Analyze changes
+        id: analyze
+        run: |
+          # Get base branch
+          git fetch origin main
+
+          # Check what files changed
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo ""
+
+          SCHEMA_CHANGED=false
+          CODE_CHANGED=false
+          CONFIG_CHANGED=false
+          BREAKING_CHANGE=false
+
+          # Check for schema changes
+          if echo "$CHANGED_FILES" | grep -q '^schemas/'; then
+            SCHEMA_CHANGED=true
+            echo "✓ Schema files changed"
+
+            # Check for breaking changes in commit messages
+            if git log origin/main...HEAD --pretty=format:"%s %b" | grep -qiE '(BREAKING CHANGE|^feat!:|^fix!:)'; then
+              BREAKING_CHANGE=true
+              echo "⚠️  Breaking changes detected in commits"
+            fi
+          fi
+
+          # Check for code changes
+          if echo "$CHANGED_FILES" | grep -qE '^apps/.*\.(go|mod|sum)$'; then
+            CODE_CHANGED=true
+            echo "✓ Code files changed"
+          fi
+
+          # Check for config-only changes
+          if echo "$CHANGED_FILES" | grep -q '^config/'; then
+            CONFIG_CHANGED=true
+            echo "✓ Config files changed"
+          fi
+
+          # Determine required bump
+          REQUIRED_BUMP="PATCH"
+          if [ "$BREAKING_CHANGE" = true ]; then
+            REQUIRED_BUMP="MAJOR"
+          elif [ "$SCHEMA_CHANGED" = true ] || [ "$CODE_CHANGED" = true ]; then
+            REQUIRED_BUMP="MINOR"
+          fi
+
+          echo ""
+          echo "required_bump=$REQUIRED_BUMP" >> $GITHUB_OUTPUT
+          echo "📊 Required version bump: $REQUIRED_BUMP"
+
+      - name: Check conventional commits
+        run: |
+          # Validate commit messages follow conventional commits
+          git log origin/main...HEAD --pretty=format:"%s" | while read -r msg; do
+            if ! echo "$msg" | grep -qE '^(feat|fix|docs|style|refactor|test|chore|ci|build|perf)(\(.+\))?(!)?:'; then
+              echo "⚠️  Non-conventional commit: $msg"
+              echo "   Expected: type(scope): description"
+              echo "   Examples: feat: add new watcher, fix: correct state detection"
+            fi
+          done
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const required = '${{ steps.analyze.outputs.required_bump }}';
+            const version = '${{ steps.check-version.outputs.version }}';
+
+            let body = `## 🔍 Version Check\n\n`;
+            body += `**Required version bump:** \`${required}\`\n\n`;
+
+            if (required === 'MAJOR') {
+              body += `⚠️ **Breaking changes detected!**\n`;
+              body += `- This PR requires a **MAJOR** version bump (x.0.0)\n`;
+              body += `- Breaking changes were found in commits or schemas\n\n`;
+            } else if (required === 'MINOR') {
+              body += `📝 **New features or schema changes detected**\n`;
+              body += `- This PR requires a **MINOR** version bump (0.x.0)\n`;
+              body += `- Schema or code files were modified\n\n`;
+            } else {
+              body += `🐛 **Bug fixes or config changes only**\n`;
+              body += `- This PR can use a **PATCH** version bump (0.0.x)\n`;
+              body += `- No schema or breaking changes detected\n\n`;
+            }
+
+            body += `### Next Steps:\n`;
+            body += `1. Ensure PR title includes version (e.g., "Release v1.2.3")\n`;
+            body += `2. Update CHANGELOG.md\n`;
+            body += `3. After merge, create git tag with version\n`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
