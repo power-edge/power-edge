@@ -226,7 +226,7 @@ vpn_gateway:
 
 ```bash
 # Works on Linux AND macOS
-bash scripts/probe/collect-identity.sh
+bash scripts/init/collect-identity.sh
 
 # Linux: Uses machine-id
 # macOS: Uses IOPlatformUUID

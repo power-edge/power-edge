@@ -35,16 +35,21 @@ Deploy `power-edge` agents to edge nodes for metrics export and state monitoring
 
 **Current State**: VPN gateway, container host, 24 cores, 251GB RAM
 
+**Prerequisites**: Passwordless SSH access to stella@10.8.0.1
+
 **Deployment** (Simple - 3 commands):
 ```bash
-# 1. Initialize configuration from remote node
-make init SSH_HOST=stella@10.8.0.1
+# Optional: Set once for entire session
+export SSH_HOST=stella@10.8.0.1
+
+# 1. Initialize remote node configuration
+make init
 
 # 2. Organize config (extracts hostname automatically)
-bash scripts/probe/organize-config.sh /tmp/power-edge-init-stella-PowerEdge-T420-*/
+bash scripts/init/organize-config.sh /tmp/power-edge-init-stella-PowerEdge-T420-*/
 
 # 3. Build and deploy in one command
-make deploy SSH_HOST=stella@10.8.0.1 NODE_CONFIG=config/nodes/stella-PowerEdge-T420
+make deploy NODE_CONFIG=config/nodes/stella-PowerEdge-T420
 ```
 
 That's it! The deploy script:

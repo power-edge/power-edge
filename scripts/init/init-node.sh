@@ -410,7 +410,7 @@ cat "$OUTPUT_DIR/system-info.json" | grep -v '{' | grep -v '}' | sed 's/^/  /'
 echo ""
 echo "Next steps:"
 echo "  1. Review configs:     ls -la $OUTPUT_DIR/"
-echo "  2. Organize:           bash scripts/probe/organize-config.sh $OUTPUT_DIR"
+echo "  2. Organize:           bash scripts/init/organize-config.sh $OUTPUT_DIR"
 echo "  3. Build and test:     make build && make run"
 echo ""
 echo "Or manually organize:"

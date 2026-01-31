@@ -92,13 +92,13 @@ registration:
 ### Local Collection
 ```bash
 cd ~/github.com/power-edge/power-edge
-bash scripts/probe/collect-identity.sh
+bash scripts/init/collect-identity.sh
 # Generates system-identity.yaml
 ```
 
 ### Remote Collection
 ```bash
-bash scripts/probe/collect-identity.sh user@remote-host
+bash scripts/init/collect-identity.sh user@remote-host
 # Collects identity from remote node via SSH
 ```
 

@@ -72,11 +72,19 @@ make run
 
 ### Initialization Workflow
 
-1. **Initialize node configuration** from remote server:
+**Prerequisites**: Passwordless SSH access to target node
+
+1. **Initialize remote node configuration**:
 ```bash
+# Option 1: Inline parameter
 make init SSH_HOST=user@your-server.local
-# Or manually:
-bash scripts/probe/init-node.sh user@your-server.local
+
+# Option 2: Environment variable
+export SSH_HOST=user@your-server.local
+make init
+
+# Option 3: Manual
+bash scripts/init/init-node.sh user@your-server.local
 ```
 
 Initialization outputs to `/tmp/power-edge-init-<hostname>-<timestamp>/`
@@ -84,7 +92,7 @@ Initialization outputs to `/tmp/power-edge-init-<hostname>-<timestamp>/`
 2. **Organize configs** into node-specific directory:
 ```bash
 # Automatically organize by hostname (extracted from discovery)
-bash scripts/probe/organize-config.sh /tmp/power-edge-init-stella-20240130-143000/
+bash scripts/init/organize-config.sh /tmp/power-edge-init-stella-20240130-143000/
 
 # This creates: config/nodes/<hostname>/ with all configs
 ```
