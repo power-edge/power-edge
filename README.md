@@ -20,31 +20,31 @@ Power Edge is a Kubernetes-style declarative state management system for edge co
 - **Declarative State**: Define desired state in YAML, system ensures compliance
 - **Prometheus Metrics**: Native metrics export for Grafana dashboards
 - **GitOps Ready**: Configuration-driven design (PATCH version for config-only changes)
-- **Auto-Discovery**: Probe existing systems to generate initial configuration
+- **Auto-Discovery**: Initialize from existing systems to generate configuration
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Power Edge System                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────┐    ┌──────────────┐   ┌──────────────┐  │
-│  │   Schemas    │───▶│  Generator   │──▶│  Go Structs  │  │
-│  │  (YAML)      │    │  (cmd/gen)   │   │  pkg/config  │  │
-│  └──────────────┘    └──────────────┘   └──────────────┘  │
-│                                                             │
-│  ┌──────────────┐    ┌──────────────┐   ┌──────────────┐  │
-│  │  State YAML  │───▶│  Checker     │──▶│  Metrics     │  │
-│  │  (desired)   │    │  pkg/checker │   │  Prometheus  │  │
-│  └──────────────┘    └──────────────┘   └──────────────┘  │
-│                                                             │
-│  ┌──────────────┐    ┌──────────────┐   ┌──────────────┐  │
-│  │ Watcher YAML │───▶│  Watchers    │──▶│  Events      │  │
-│  │  (monitors)  │    │  pkg/watcher │   │  Real-time   │  │
-│  └──────────────┘    └──────────────┘   └──────────────┘  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "Schema-Driven Code Generation"
+        Schemas[JSON Schemas<br/>YAML] --> Generator[Code Generator<br/>cmd/generator]
+        Generator --> Structs[Go Types<br/>pkg/config]
+    end
+
+    subgraph "State Compliance"
+        StateYAML[State Config<br/>desired state] --> Checker[State Checker<br/>pkg/checker]
+        Structs --> Checker
+        Checker --> Metrics[Prometheus Metrics<br/>pkg/metrics]
+    end
+
+    subgraph "Real-Time Monitoring"
+        WatcherYAML[Watcher Config<br/>monitors] --> Watchers[Event Watchers<br/>pkg/watcher]
+        Structs --> Watchers
+        Watchers --> Events[Real-Time Events<br/>inotify/journald/auditd]
+    end
+
+    Metrics --> Prometheus[Prometheus<br/>Scraper]
+    Events --> Metrics
 ```
 
 ## Quick Start
@@ -72,7 +72,7 @@ make run
 
 ### Discovery Workflow
 
-1. **Probe your server** to generate initial configs:
+1. **Initialize from your server** to generate configs:
 ```bash
 make probe
 # Or manually:
