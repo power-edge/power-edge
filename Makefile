@@ -94,13 +94,13 @@ docker-build: ## Build Docker image
 
 init: ## Initialize remote node configuration (requires passwordless SSH)
 	@echo "🔍 Initializing remote node configuration..."
-	@SSH_TARGET="$(SSH_HOST)"; \
+	@SSH_TARGET="$(SSH)"; \
 	if [ -z "$$SSH_TARGET" ]; then \
-		echo "Usage: make init SSH_HOST=user@hostname"; \
-		echo "   Or: export SSH_HOST=user@hostname && make init"; \
-		echo "Example: make init SSH_HOST=stella@10.8.0.1"; \
+		echo "Usage: make init SSH=user@hostname"; \
+		echo "   Or: export SSH=user@hostname && make init"; \
+		echo "Example: make init SSH=stella@10.8.0.1"; \
 		echo ""; \
-		echo "❌ Error: SSH_HOST not set"; \
+		echo "❌ Error: SSH not set"; \
 		exit 1; \
 	fi; \
 	bash scripts/init/init-node.sh "$$SSH_TARGET"
@@ -113,25 +113,31 @@ install: build ## Install binaries to /usr/local/bin (local machine)
 	@echo "   /usr/local/bin/$(CLIENT_BINARY)"
 	@echo "   /usr/local/bin/$(SERVER_BINARY)"
 
-deploy: build-client ## Deploy client to remote node via SSH (requires passwordless SSH)
+deploy: build-client ## Deploy client to remote node via SSH (optional: passwordless sudo or SUDO_PASS)
 	@echo "🚀 Deploying to remote node..."
-	@SSH_TARGET="$(SSH_HOST)"; \
+	@# Load .env if it exists
+	@if [ -f .env ]; then \
+		echo "   Loading environment from .env"; \
+		set -a; . ./.env; set +a; \
+	fi; \
+	SSH_TARGET="$(SSH)"; \
 	NODE_CFG="$(NODE_CONFIG)"; \
 	if [ -z "$$SSH_TARGET" ]; then \
-		echo "Usage: make deploy SSH_HOST=user@hostname NODE_CONFIG=config/nodes/hostname"; \
-		echo "   Or: export SSH_HOST=user@hostname && make deploy NODE_CONFIG=..."; \
-		echo "Example: make deploy SSH_HOST=stella@10.8.0.1 NODE_CONFIG=config/nodes/stella-PowerEdge-T420"; \
+		echo "Usage: make deploy SSH=user@hostname NODE_CONFIG=config/nodes/hostname"; \
+		echo "   Or: export SSH=user@hostname && make deploy NODE_CONFIG=..."; \
+		echo "   Or: Create .env file (see .env.example)"; \
+		echo "Example: make deploy SSH=stella@10.8.0.1 NODE_CONFIG=config/nodes/stella-PowerEdge-T420"; \
 		echo ""; \
-		echo "❌ Error: SSH_HOST not set"; \
+		echo "❌ Error: SSH not set"; \
 		exit 1; \
 	fi; \
 	if [ -z "$$NODE_CFG" ]; then \
 		echo ""; \
 		echo "❌ Error: NODE_CONFIG not set"; \
-		echo "   Run: make deploy SSH_HOST=user@hostname NODE_CONFIG=config/nodes/hostname"; \
+		echo "   Run: make deploy SSH=user@hostname NODE_CONFIG=config/nodes/hostname"; \
 		exit 1; \
 	fi; \
-	bash scripts/deploy/install-remote.sh "$$SSH_TARGET" "$$NODE_CFG"
+	SUDO_PASS="$${SUDO_PASS:-}" bash scripts/deploy/install-remote.sh "$$SSH_TARGET" "$$NODE_CFG"
 
 version: ## Show version info
 	@echo "Version:    $(VERSION)"

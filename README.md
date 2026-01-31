@@ -77,10 +77,10 @@ make run
 1. **Initialize remote node configuration**:
 ```bash
 # Option 1: Inline parameter
-make init SSH_HOST=user@your-server.local
+make init SSH=user@your-server.local
 
 # Option 2: Environment variable
-export SSH_HOST=user@your-server.local
+export SSH=user@your-server.local
 make init
 
 # Option 3: Manual

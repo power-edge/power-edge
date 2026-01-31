@@ -40,3 +40,7 @@ Thumbs.db
 *.bak
 *.swp
 *~
+
+# Environment files with secrets
+.env
+.env.local

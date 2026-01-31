@@ -40,7 +40,7 @@ Deploy `power-edge` agents to edge nodes for metrics export and state monitoring
 **Deployment** (Simple - 3 commands):
 ```bash
 # Optional: Set once for entire session
-export SSH_HOST=stella@10.8.0.1
+export SSH=stella@10.8.0.1
 
 # 1. Initialize remote node configuration
 make init
@@ -72,7 +72,7 @@ ssh stella@10.8.0.1 "sudo ufw allow 9100/tcp comment 'Power Edge metrics'"
 **Deployment**:
 ```bash
 # Same process as T420, adjust hostname accordingly
-make init SSH_HOST=user@vpn-server.local
+make init SSH=user@vpn-server.local
 # ... follow same steps as above
 ```
 
@@ -159,7 +159,7 @@ groups:
 - [ ] kubectl access to tech-screen K8s cluster
 
 ### Edge Nodes (T420, VPN Server)
-- [ ] Run `make init SSH_HOST=...` for each node
+- [ ] Run `make init SSH=...` for each node
 - [ ] Review and adjust generated configs
 - [ ] Build power-edge binary
 - [ ] Deploy binary to edge nodes
@@ -211,4 +211,4 @@ kubectl run -it --rm debug --image=nicolaka/netshoot -- curl http://10.8.0.1:910
 ---
 
 **Status**: Ready for Phase 1 deployment
-**Next Step**: Initialize T420 configuration with `make init SSH_HOST=stella@10.8.0.1`
+**Next Step**: Initialize T420 configuration with `make init SSH=stella@10.8.0.1`
