@@ -70,21 +70,21 @@ make build
 make run
 ```
 
-### Discovery Workflow
+### Initialization Workflow
 
-1. **Initialize from your server** to generate configs:
+1. **Initialize node configuration** from remote server:
 ```bash
-make probe
+make init SSH_HOST=user@your-server.local
 # Or manually:
-bash scripts/probe/discover-edge-node.sh user@your-server.local
+bash scripts/probe/init-node.sh user@your-server.local
 ```
 
-Discovery outputs to `/tmp/power-edge-discovery-<hostname>-<timestamp>/`
+Initialization outputs to `/tmp/power-edge-init-<hostname>-<timestamp>/`
 
-2. **Review and organize configs**:
+2. **Organize configs** into node-specific directory:
 ```bash
-# Automatically organize by hostname
-bash scripts/probe/organize-config.sh /tmp/power-edge-discovery-stella-20240130-143000/
+# Automatically organize by hostname (extracted from discovery)
+bash scripts/probe/organize-config.sh /tmp/power-edge-init-stella-20240130-143000/
 
 # This creates: config/nodes/<hostname>/ with all configs
 ```
@@ -95,13 +95,13 @@ ls -la config/nodes/stella-PowerEdge-T420/
 # - generated-state.yaml           # Desired system state
 # - generated-watcher-config.yaml  # Monitoring configuration
 # - system-identity.yaml           # Immutable identifiers
-# - discovery-data/                # Raw discovery output
+# - discovery-data/                # Raw initialization output
 ```
 
 4. **Build and deploy**:
 ```bash
 make build
-make install  # Installs to /usr/local/bin
+make install  # Installs to /usr/local/bin/power-edge
 ```
 
 ## Configuration
@@ -197,14 +197,14 @@ CI/CD validates that version bumps match the type of changes made.
 
 ## Usage
 
-### Running the Exporter
+### Running Power Edge
 
 ```bash
 # Development mode
 make run-dev
 
 # Production mode
-edge-state-exporter \
+power-edge \
   -state-config=/etc/power-edge/state.yaml \
   -watcher-config=/etc/power-edge/watcher.yaml \
   -listen=:9100 \
@@ -317,18 +317,18 @@ func (c *Collector) checkPackages(packages []config.PackageConfig) error {
 
 ```bash
 # Install binary
-sudo cp bin/edge-state-exporter /usr/local/bin/
+sudo cp bin/power-edge /usr/local/bin/
 
 # Create service file
-sudo tee /etc/systemd/system/edge-state-exporter.service << 'EOF'
+sudo tee /etc/systemd/system/power-edge.service << 'EOF'
 [Unit]
-Description=Power Edge State Exporter
+Description=Power Edge - Edge State Controller
 After=network.target
 
 [Service]
 Type=simple
 User=power-edge
-ExecStart=/usr/local/bin/edge-state-exporter \
+ExecStart=/usr/local/bin/power-edge \
   -state-config=/etc/power-edge/state.yaml \
   -watcher-config=/etc/power-edge/watcher.yaml \
   -listen=:9100
@@ -340,9 +340,9 @@ WantedBy=multi-user.target
 EOF
 
 # Enable and start
-sudo systemctl enable edge-state-exporter
-sudo systemctl start edge-state-exporter
-sudo systemctl status edge-state-exporter
+sudo systemctl enable power-edge
+sudo systemctl start power-edge
+sudo systemctl status power-edge
 ```
 
 ### Prometheus Configuration

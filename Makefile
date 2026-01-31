@@ -9,6 +9,7 @@ BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 OUTPUT_DIR = bin
 SCHEMA_DIR = schemas
 CONFIG_DIR = config/nodes/stella-PowerEdge-T420
+BINARY_NAME = power-edge
 
 # Build flags
 LDFLAGS = -X main.Version=$(VERSION) \
@@ -30,14 +31,14 @@ generate: ## Generate Go code from schemas
 		-output-dir=apps/edge-state-exporter/pkg/config
 	@echo "✅ Code generation complete"
 
-build: generate ## Build the edge-state-exporter binary
-	@echo "🔨 Building edge-state-exporter..."
+build: generate ## Build the power-edge binary
+	@echo "🔨 Building $(BINARY_NAME)..."
 	@mkdir -p $(OUTPUT_DIR)
 	go build -ldflags "$(LDFLAGS)" \
-		-o $(OUTPUT_DIR)/edge-state-exporter \
+		-o $(OUTPUT_DIR)/$(BINARY_NAME) \
 		apps/edge-state-exporter/cmd/exporter/main.go
-	@echo "✅ Build complete: $(OUTPUT_DIR)/edge-state-exporter"
-	@$(OUTPUT_DIR)/edge-state-exporter -version
+	@echo "✅ Build complete: $(OUTPUT_DIR)/$(BINARY_NAME)"
+	@$(OUTPUT_DIR)/$(BINARY_NAME) -version
 
 test: ## Run tests
 	@echo "🧪 Running tests..."
@@ -52,10 +53,11 @@ clean: ## Clean build artifacts
 	@echo "🧹 Cleaning..."
 	rm -rf $(OUTPUT_DIR)
 	rm -f apps/edge-state-exporter/pkg/config/generated.go
+	rm -rf /tmp/power-edge-init-*
 
 run: build ## Build and run locally
-	@echo "🚀 Running edge-state-exporter..."
-	$(OUTPUT_DIR)/edge-state-exporter \
+	@echo "🚀 Running $(BINARY_NAME)..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) \
 		-state-config=$(CONFIG_DIR)/state.yaml \
 		-watcher-config=$(CONFIG_DIR)/watcher.yaml \
 		-listen=:9100 \
@@ -71,28 +73,28 @@ run-dev: ## Run in development mode (without building)
 
 docker-build: ## Build Docker image
 	@echo "🐳 Building Docker image..."
-	docker build -t power-edge/edge-state-exporter:$(VERSION) \
+	docker build -t power-edge/power-edge:$(VERSION) \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 		--build-arg BUILD_TIME=$(BUILD_TIME) \
 		-f apps/edge-state-exporter/Dockerfile .
 
-probe: ## Run discovery probe on remote node
-	@echo "🔍 Running discovery probe..."
-	@echo "Usage: make probe SSH_HOST=user@hostname"
-	@echo "Example: make probe SSH_HOST=stella@10.8.0.1"
+init: ## Initialize node configuration from remote server
+	@echo "🔍 Initializing node configuration..."
+	@echo "Usage: make init SSH_HOST=user@hostname"
+	@echo "Example: make init SSH_HOST=stella@10.8.0.1"
 	@if [ -z "$(SSH_HOST)" ]; then \
 		echo ""; \
 		echo "❌ Error: SSH_HOST not set"; \
-		echo "   Run: make probe SSH_HOST=user@hostname"; \
+		echo "   Run: make init SSH_HOST=user@hostname"; \
 		exit 1; \
 	fi
-	bash scripts/probe/discover-edge-node.sh $(SSH_HOST)
+	bash scripts/probe/init-node.sh $(SSH_HOST)
 
 install: build ## Install binary to /usr/local/bin
-	@echo "📦 Installing edge-state-exporter..."
-	sudo cp $(OUTPUT_DIR)/edge-state-exporter /usr/local/bin/
-	@echo "✅ Installed to /usr/local/bin/edge-state-exporter"
+	@echo "📦 Installing $(BINARY_NAME)..."
+	sudo cp $(OUTPUT_DIR)/$(BINARY_NAME) /usr/local/bin/
+	@echo "✅ Installed to /usr/local/bin/$(BINARY_NAME)"
 
 version: ## Show version info
 	@echo "Version:    $(VERSION)"

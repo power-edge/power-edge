@@ -89,14 +89,14 @@ jobs:
             -X main.Version=${VERSION} \
             -X main.GitCommit=${GIT_COMMIT} \
             -X main.BuildTime=${BUILD_TIME}" \
-            -o dist/edge-state-exporter-${GOOS}-${GOARCH} \
-            apps/edge-state-exporter/cmd/exporter/main.go
+            -o dist/power-edge-${GOOS}-${GOARCH} \
+            apps/power-edge/cmd/exporter/main.go
 
       - name: Create tarball
         run: |
           cd dist
-          tar -czf edge-state-exporter-${{ steps.version.outputs.version_no_v }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz edge-state-exporter-*
-          sha256sum edge-state-exporter-*.tar.gz > checksums.txt
+          tar -czf power-edge-${{ steps.version.outputs.version_no_v }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz power-edge-*
+          sha256sum power-edge-*.tar.gz > checksums.txt
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -143,7 +143,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./apps/edge-state-exporter/Dockerfile
+          file: ./apps/power-edge/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

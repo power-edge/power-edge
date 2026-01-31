@@ -144,8 +144,8 @@ jobs:
           # Create distribution
           mkdir -p dist
           VERSION_NO_V=${VERSION#v}
-          tar -czf dist/edge-state-exporter-${VERSION_NO_V}-linux-amd64.tar.gz \
-            -C bin edge-state-exporter
+          tar -czf dist/power-edge-${VERSION_NO_V}-linux-amd64.tar.gz \
+            -C bin power-edge
           sha256sum dist/*.tar.gz > dist/checksums.txt
 
       - name: Re-tag Docker image
@@ -313,7 +313,7 @@ Add details about why this rollback was necessary.`,
           echo "docker pull ghcr.io/${{ github.repository }}:${NEW_VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# Or download binary from GitHub release" >> $GITHUB_STEP_SUMMARY
-          echo "wget https://github.com/${{ github.repository }}/releases/download/${NEW_VERSION}/edge-state-exporter-*.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${NEW_VERSION}/power-edge-*.tar.gz" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
           if [ "$IS_ROLLBACK" = "true" ]; then

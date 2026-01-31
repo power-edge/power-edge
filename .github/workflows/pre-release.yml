@@ -53,9 +53,9 @@ jobs:
 
           # Create distribution
           mkdir -p dist
-          cp bin/edge-state-exporter dist/
-          tar -czf dist/edge-state-exporter-${{ steps.version.outputs.version }}-linux-amd64.tar.gz \
-            -C dist edge-state-exporter
+          cp bin/power-edge dist/
+          tar -czf dist/power-edge-${{ steps.version.outputs.version }}-linux-amd64.tar.gz \
+            -C dist power-edge
 
       - name: Build Docker image
         uses: docker/setup-buildx-action@v3
@@ -71,7 +71,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./apps/edge-state-exporter/Dockerfile
+          file: ./apps/power-edge/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |

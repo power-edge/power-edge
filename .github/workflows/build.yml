@@ -41,13 +41,13 @@ jobs:
 
       - name: Test binary execution
         run: |
-          ./bin/edge-state-exporter -version
+          ./bin/power-edge -version
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: edge-state-exporter-${{ matrix.os }}-${{ matrix.go-version }}
-          path: bin/edge-state-exporter
+          name: power-edge-${{ matrix.os }}-${{ matrix.go-version }}
+          path: bin/power-edge
           retention-days: 7
 
   docker-build:
@@ -69,4 +69,4 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --rm power-edge/edge-state-exporter:${{ github.ref_name }} -version
+          docker run --rm power-edge/power-edge:${{ github.ref_name }} -version

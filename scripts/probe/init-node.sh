@@ -27,7 +27,7 @@ fi
 
 # Get hostname for output directory
 REMOTE_HOSTNAME=$(ssh "$SSH_HOST" "hostname -s" 2>/dev/null || echo "unknown")
-OUTPUT_DIR="/tmp/power-edge-discovery-${REMOTE_HOSTNAME}-${TIMESTAMP}"
+OUTPUT_DIR="/tmp/power-edge-init-${REMOTE_HOSTNAME}-${TIMESTAMP}"
 
 echo "✅ Connected to $SSH_HOST (hostname: $REMOTE_HOSTNAME)"
 echo "📁 Output directory: $OUTPUT_DIR"
@@ -398,7 +398,7 @@ if remote_exec "command -v kubectl >/dev/null 2>&1" | grep -v COMMAND_FAILED >/d
 fi
 
 echo ""
-echo "✅ Discovery complete!"
+echo "✅ Node initialization complete!"
 echo ""
 echo "📁 Results in: $OUTPUT_DIR/"
 echo ""

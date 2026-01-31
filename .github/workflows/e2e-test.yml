@@ -74,7 +74,7 @@ jobs:
         timeout-minutes: 2
         run: |
           # Start exporter in background
-          ./bin/edge-state-exporter \
+          ./bin/power-edge \
             -state-config=/tmp/power-edge-test/config/test-node/state.yaml \
             -watcher-config=/tmp/power-edge-test/config/test-node/watcher.yaml \
             -listen=:9100 \
@@ -172,12 +172,12 @@ jobs:
       - name: Test Docker container
         run: |
           # Test version command
-          docker run --rm power-edge/edge-state-exporter:e2e-test -version
+          docker run --rm power-edge/power-edge:e2e-test -version
 
           # Test with minimal config (should fail gracefully)
           docker run --rm \
             -e STATE_CONFIG=/dev/null \
-            power-edge/edge-state-exporter:e2e-test \
+            power-edge/power-edge:e2e-test \
             -version || true
 
           echo "✅ Docker image functional"
