@@ -77,7 +77,7 @@ type Field struct {
 
 func main() {
 	schemaDir := flag.String("schema-dir", "./schemas", "Directory containing schema files")
-	outputDir := flag.String("output-dir", "./apps/edge-state-exporter/pkg/config", "Output directory for generated code")
+	outputDir := flag.String("output-dir", "./pkg/config", "Output directory for generated code")
 	flag.Parse()
 
 	log.Printf("Reading schemas from: %s", *schemaDir)
