@@ -295,7 +295,54 @@ done
 echo ""
 
 # ========================================
-# 10. Generate State Config
+# 10. Discover System Versions
+# ========================================
+echo "🔍 Discovering system component versions..."
+
+# Initialize JSON with timestamp
+DISCOVERED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+echo '{}' | jq --arg timestamp "$DISCOVERED_AT" '{discovered_at: $timestamp, versions: {}}' > "$OUTPUT_DIR/system-versions.json"
+
+# Helper to add version to JSON
+add_version() {
+    local name="$1"
+    local version="$2"
+
+    if [ -n "$version" ] && [ "$version" != "COMMAND_FAILED" ]; then
+        jq --arg name "$name" --arg version "$version" \
+           '.versions[$name] = $version' \
+           "$OUTPUT_DIR/system-versions.json" > "$OUTPUT_DIR/system-versions.json.tmp" && \
+        mv "$OUTPUT_DIR/system-versions.json.tmp" "$OUTPUT_DIR/system-versions.json"
+        echo "  $name: $version"
+    fi
+}
+
+# Collect and add versions
+KERNEL_VERSION=$(remote_exec "uname -r" | grep -v COMMAND_FAILED)
+add_version "kernel" "$KERNEL_VERSION"
+
+SYSTEMD_VERSION=$(remote_exec "systemctl --version | head -1 | awk '{print \$2}'" | grep -v COMMAND_FAILED)
+add_version "systemd" "$SYSTEMD_VERSION"
+
+UFW_VERSION=$(remote_exec "ufw version 2>/dev/null | awk 'NR==1{print \$2}'" | grep -v COMMAND_FAILED)
+add_version "ufw" "$UFW_VERSION"
+
+IPTABLES_VERSION=$(remote_exec "iptables --version 2>/dev/null | awk '{print \$2}' | sed 's/v//'" | grep -v COMMAND_FAILED)
+add_version "iptables" "$IPTABLES_VERSION"
+
+DOCKER_VERSION=$(remote_exec "docker --version 2>/dev/null | awk '{print \$3}' | sed 's/,//'" | grep -v COMMAND_FAILED)
+add_version "docker" "$DOCKER_VERSION"
+
+KUBECTL_VERSION=$(remote_exec "kubectl version --client --short 2>/dev/null | awk '{print \$3}' | sed 's/v//'" | grep -v COMMAND_FAILED)
+add_version "kubectl" "$KUBECTL_VERSION"
+
+GIT_VERSION=$(remote_exec "git --version 2>/dev/null | awk '{print \$3}'" | grep -v COMMAND_FAILED)
+add_version "git" "$GIT_VERSION"
+
+echo ""
+
+# ========================================
+# 11. Generate State Config
 # ========================================
 echo "📝 Generating state configuration..."
 
@@ -366,7 +413,7 @@ if [ -f "$OUTPUT_DIR/sysctl-important.txt" ]; then
 fi
 
 # ========================================
-# 11. Generate Watcher Config
+# 12. Generate Watcher Config
 # ========================================
 echo "📝 Generating watcher configuration..."
 
