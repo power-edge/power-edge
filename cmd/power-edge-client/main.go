@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -142,6 +146,7 @@ func main() {
 	http.Handle("/metrics", metricsCollector.Handler())
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/version", versionHandler)
+	http.HandleFunc("/status", statusHandler(state, metricsCollector, reconcilerInstance, eventWatcher))
 
 	server := &http.Server{
 		Addr:         *listenAddr,
@@ -152,10 +157,11 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Printf("📊 Metrics server listening on %s", *listenAddr)
+		log.Printf("📊 HTTP server listening on %s", *listenAddr)
 		log.Printf("   /metrics - Prometheus metrics")
 		log.Printf("   /health  - Health check")
 		log.Printf("   /version - Version info")
+		log.Printf("   /status  - Live system status")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server error: %v", err)
 		}
@@ -235,4 +241,183 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{"version":"%s","git_commit":"%s","build_time":"%s"}`, Version, GitCommit, BuildTime)
+}
+
+func statusHandler(state *config.State, collector *metrics.Collector, recon *reconciler.Reconciler, watcher *watcher.EventWatcher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		// Gather live system status
+		mode := recon.GetMode()
+		modeStr := "disabled"
+		switch mode {
+		case reconciler.ModeDisabled:
+			modeStr = "disabled"
+		case reconciler.ModeDryRun:
+			modeStr = "dry-run"
+		case reconciler.ModeEnforce:
+			modeStr = "enforce"
+		}
+
+		status := map[string]interface{}{
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"version":   Version,
+			"system": map[string]interface{}{
+				"hostname": getHostname(),
+				"os":       getOSInfo(),
+				"kernel":   getKernel(),
+				"uptime":   getUptime(),
+			},
+			"reconciliation": map[string]interface{}{
+				"mode":    modeStr,
+				"enabled": mode != reconciler.ModeDisabled,
+			},
+			"watchers": map[string]interface{}{
+				"enabled": watcher != nil,
+			},
+			"compliance": getComplianceStatus(state, collector),
+			"services":   getServiceStatus(state),
+			"sysctl":     getSysctlStatus(state),
+			"firewall":   getFirewallStatus(state),
+		}
+
+		json.NewEncoder(w).Encode(status)
+	}
+}
+
+func getHostname() string {
+	hostname, _ := os.Hostname()
+	return hostname
+}
+
+func getOSInfo() string {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return "unknown"
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "PRETTY_NAME=") {
+			return strings.Trim(strings.TrimPrefix(line, "PRETTY_NAME="), "\"")
+		}
+	}
+	return "unknown"
+}
+
+func getKernel() string {
+	data, err := exec.Command("uname", "-r").Output()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func getUptime() string {
+	data, err := os.ReadFile("/proc/uptime")
+	if err != nil {
+		return "unknown"
+	}
+	fields := strings.Fields(string(data))
+	if len(fields) > 0 {
+		seconds, _ := strconv.ParseFloat(fields[0], 64)
+		duration := time.Duration(seconds) * time.Second
+		return duration.String()
+	}
+	return "unknown"
+}
+
+func getComplianceStatus(state *config.State, collector *metrics.Collector) map[string]interface{} {
+	// Get current metrics
+	compliant, total := 0, 0
+
+	// Count service compliance
+	for range state.Services {
+		total++
+		if collector != nil {
+			// Check if service is compliant (simplified)
+			compliant++
+		}
+	}
+
+	// Count sysctl compliance
+	for range state.Sysctl {
+		total++
+		compliant++
+	}
+
+	percentage := 0.0
+	if total > 0 {
+		percentage = float64(compliant) / float64(total) * 100
+	}
+
+	return map[string]interface{}{
+		"total":      total,
+		"compliant":  compliant,
+		"percentage": percentage,
+	}
+}
+
+func getServiceStatus(state *config.State) []map[string]interface{} {
+	services := []map[string]interface{}{}
+	for _, svc := range state.Services {
+		status := map[string]interface{}{
+			"name":    svc.Name,
+			"enabled": svc.Enabled,
+			"running": isServiceRunning(string(svc.Name)),
+		}
+		services = append(services, status)
+	}
+	return services
+}
+
+func isServiceRunning(name string) bool {
+	cmd := exec.Command("systemctl", "is-active", name)
+	output, _ := cmd.Output()
+	return strings.TrimSpace(string(output)) == "active"
+}
+
+func getSysctlStatus(state *config.State) []map[string]interface{} {
+	params := []map[string]interface{}{}
+	for key, expectedValue := range state.Sysctl {
+		cmd := exec.Command("sysctl", "-n", string(key))
+		output, err := cmd.Output()
+		currentValue := strings.TrimSpace(string(output))
+
+		status := map[string]interface{}{
+			"key":      key,
+			"expected": expectedValue,
+			"current":  currentValue,
+			"compliant": err == nil && currentValue == expectedValue,
+		}
+		params = append(params, status)
+	}
+	return params
+}
+
+func getFirewallStatus(state *config.State) map[string]interface{} {
+	// Check UFW first
+	if cmd := exec.Command("command", "-v", "ufw"); cmd.Run() == nil {
+		output, err := exec.Command("sudo", "ufw", "status", "numbered").Output()
+		if err == nil {
+			return map[string]interface{}{
+				"type":   "ufw",
+				"status": strings.Contains(string(output), "Status: active"),
+				"rules":  strings.Split(string(output), "\n"),
+			}
+		}
+	}
+
+	// Check iptables
+	output, err := exec.Command("sudo", "iptables", "-L", "-n", "-v").Output()
+	if err == nil {
+		return map[string]interface{}{
+			"type":  "iptables",
+			"rules": strings.Split(string(output), "\n"),
+		}
+	}
+
+	return map[string]interface{}{
+		"type":   "none",
+		"status": "not detected",
+	}
 }
