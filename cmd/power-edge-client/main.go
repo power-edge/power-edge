@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -16,10 +17,10 @@ import (
 	"time"
 
 	"github.com/power-edge/power-edge/pkg/config"
-	"github.com/power-edge/power-edge/pkg/gitops"
 	"github.com/power-edge/power-edge/pkg/metrics"
 	"github.com/power-edge/power-edge/pkg/reconciler"
 	"github.com/power-edge/power-edge/pkg/watcher"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -31,15 +32,13 @@ var (
 
 func main() {
 	// Flags
-	stateConfig := flag.String("state-config", "/etc/power-edge/state.yaml", "Path to state configuration")
+	stateConfig := flag.String("state-config", "/etc/power-edge/state.yaml", "Path to local state configuration (fallback)")
 	watcherConfig := flag.String("watcher-config", "/etc/power-edge/watcher.yaml", "Path to watcher configuration")
 	listenAddr := flag.String("listen", ":9100", "Prometheus metrics listen address")
 	checkInterval := flag.Duration("check-interval", 30*time.Second, "State check interval")
 	reconcileMode := flag.String("reconcile", "disabled", "Reconciliation mode: disabled, dry-run, enforce")
-	gitopsRepo := flag.String("gitops-repo", "", "GitOps repository URL (enables GitOps sync)")
-	gitopsBranch := flag.String("gitops-branch", "main", "GitOps repository branch")
-	gitopsPath := flag.String("gitops-path", "state.yaml", "Path to state.yaml in GitOps repo")
-	gitopsInterval := flag.Duration("gitops-interval", 30*time.Second, "GitOps sync interval")
+	serverURL := flag.String("server-url", "", "Power Edge server URL (e.g., http://localhost:8080)")
+	nodeID := flag.String("node-id", "", "Node ID (defaults to hostname)")
 	version := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -51,25 +50,57 @@ func main() {
 		os.Exit(0)
 	}
 
-	log.Printf("🚀 Starting edge-state-exporter %s", Version)
-	log.Printf("   State Config:      %s", *stateConfig)
+	// Determine node ID
+	if *nodeID == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			log.Fatalf("Failed to get hostname: %v", err)
+		}
+		*nodeID = hostname
+	}
+
+	log.Printf("🚀 Starting power-edge-client %s", Version)
+	log.Printf("   Node ID:           %s", *nodeID)
+	log.Printf("   Server URL:        %s", *serverURL)
+	log.Printf("   Local State:       %s (fallback)", *stateConfig)
 	log.Printf("   Watcher Config:    %s", *watcherConfig)
 	log.Printf("   Listen Addr:       %s", *listenAddr)
 	log.Printf("   Check Interval:    %s", *checkInterval)
 	log.Printf("   Reconcile Mode:    %s", *reconcileMode)
-	if *gitopsRepo != "" {
-		log.Printf("   GitOps Repo:       %s@%s", *gitopsRepo, *gitopsBranch)
-		log.Printf("   GitOps Path:       %s", *gitopsPath)
-		log.Printf("   GitOps Interval:   %s", *gitopsInterval)
+
+	// Load state configuration
+	log.Println("📖 Loading state configuration...")
+	var state *config.State
+	var err error
+
+	// Try to fetch from server first
+	if *serverURL != "" {
+		log.Printf("   Attempting to fetch state from server: %s", *serverURL)
+		state, err = fetchStateFromServer(*serverURL, *nodeID)
+		if err != nil {
+			log.Printf("   ⚠️  Failed to fetch from server: %v", err)
+			log.Printf("   📁 Falling back to local file: %s", *stateConfig)
+			state, err = config.LoadStateConfig(*stateConfig)
+			if err != nil {
+				log.Fatalf("Failed to load local state config: %v", err)
+			}
+		} else {
+			log.Printf("   ✅ Fetched state from server")
+			// Save to local file for offline operation
+			if err := saveStateToLocalFile(*stateConfig, state); err != nil {
+				log.Printf("   ⚠️  Failed to save state to local file: %v", err)
+			}
+		}
+	} else {
+		// No server configured, use local file only
+		log.Printf("   📁 Loading from local file: %s", *stateConfig)
+		state, err = config.LoadStateConfig(*stateConfig)
+		if err != nil {
+			log.Fatalf("Failed to load state config: %v", err)
+		}
 	}
 
-	// Load configurations
-	log.Println("📖 Loading configurations...")
-	state, err := config.LoadStateConfig(*stateConfig)
-	if err != nil {
-		log.Fatalf("Failed to load state config: %v", err)
-	}
-	log.Printf("   Loaded state config: %s (%s)", state.Metadata.Site, state.Metadata.Environment)
+	log.Printf("   Loaded state: %s (%s)", state.Metadata.Site, state.Metadata.Environment)
 
 	watcherCfg, err := config.LoadWatcherConfig(*watcherConfig)
 	if err != nil {
@@ -106,34 +137,6 @@ func main() {
 		log.Println("   ✅ Event watchers started")
 	} else {
 		log.Println("⚠️  Event watchers disabled")
-	}
-
-	// Initialize GitOps sync if configured
-	var gitopsSync *gitops.GitOpsSync
-	if *gitopsRepo != "" {
-		log.Println("🔄 Initializing GitOps sync...")
-		gitopsSync = gitops.NewGitOpsSync(gitops.Config{
-			RepoURL:      *gitopsRepo,
-			Branch:       *gitopsBranch,
-			StatePath:    *gitopsPath,
-			PollInterval: *gitopsInterval,
-			OnUpdate: func(newState *config.State) error {
-				// Update state and trigger reconciliation
-				state = newState
-				if reconcilerInstance.GetMode() != reconciler.ModeDisabled {
-					_, err := reconcilerInstance.ReconcileAll(context.Background(), state)
-					return err
-				}
-				return nil
-			},
-		})
-
-		go func() {
-			if err := gitopsSync.Start(context.Background()); err != nil {
-				log.Printf("GitOps sync error: %v", err)
-			}
-		}()
-		log.Println("   ✅ GitOps sync started")
 	}
 
 	// Start periodic state checker
@@ -420,4 +423,44 @@ func getFirewallStatus(state *config.State) map[string]interface{} {
 		"type":   "none",
 		"status": "not detected",
 	}
+}
+
+// fetchStateFromServer retrieves node state from the power-edge-server
+func fetchStateFromServer(serverURL, nodeID string) (*config.State, error) {
+	url := fmt.Sprintf("%s/api/v1/nodes/%s", serverURL, nodeID)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch state: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("node not found on server (have you initialized it?)")
+	} else if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Decode YAML response
+	var state config.State
+	if err := yaml.NewDecoder(resp.Body).Decode(&state); err != nil {
+		return nil, fmt.Errorf("failed to decode state: %w", err)
+	}
+
+	return &state, nil
+}
+
+// saveStateToLocalFile saves state to local file for offline operation
+func saveStateToLocalFile(path string, state *config.State) error {
+	data, err := yaml.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("failed to marshal state: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
