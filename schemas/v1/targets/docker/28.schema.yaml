@@ -1,0 +1,97 @@
+# Docker 28.x Target System Schema
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/v1/targets/docker/28.yaml
+
+metadata:
+  target_system: docker
+  version_pattern: "28.*"
+  description: "Docker Engine version 28.x management commands"
+
+commands:
+  version:
+    command: "docker version --format '{{.Server.Version}}'"
+
+  info:
+    command: "docker info"
+
+  list_containers:
+    running: "docker ps"
+    all: "docker ps -a"
+    json: "docker ps -a --format json"
+
+  list_images:
+    command: "docker images"
+    json: "docker images --format json"
+
+  list_volumes:
+    command: "docker volume ls"
+
+  list_networks:
+    command: "docker network ls"
+
+  container_inspect:
+    command: "docker inspect {container_id}"
+
+  container_logs:
+    command: "docker logs {container_id}"
+    follow: "docker logs -f {container_id}"
+    tail: "docker logs --tail {lines} {container_id}"
+
+  system_prune:
+    containers: "docker container prune -f"
+    images: "docker image prune -f"
+    volumes: "docker volume prune -f"
+    all: "docker system prune -a -f"
+
+health_checks:
+  daemon_running:
+    command: "docker info >/dev/null 2>&1"
+    description: "Check if Docker daemon is accessible"
+
+  storage_driver:
+    command: "docker info --format '{{.Driver}}'"
+    recommended: ["overlay2", "btrfs", "zfs"]
+
+  cgroup_driver:
+    command: "docker info --format '{{.CgroupDriver}}'"
+    recommended: "systemd"  # For Kubernetes compatibility
+
+features:
+  buildkit: true
+  compose_v2: true
+  containerd_integration: true
+  rootless_mode: true
+  gpu_support: true
+
+configuration:
+  daemon_config: "/etc/docker/daemon.json"
+  systemd_unit: "docker.service"
+
+recommended_settings:
+  log_driver: "json-file"
+  log_opts:
+    max_size: "10m"
+    max_file: "3"
+  storage_driver: "overlay2"
+  cgroup_driver: "systemd"  # Required for Kubernetes
+  live_restore: true
+  userland_proxy: false
+
+known_issues:
+  - issue: "IPv6 support requires manual configuration"
+    description: "IPv6 networking must be explicitly enabled in daemon.json"
+    workaround: |
+      Add to /etc/docker/daemon.json:
+      {
+        "ipv6": true,
+        "fixed-cidr-v6": "2001:db8:1::/64"
+      }
+
+  - issue: "iptables rules conflict with UFW"
+    description: "Docker modifies iptables directly, can bypass UFW rules"
+    workaround: "Set DOCKER_OPTS=\"--iptables=false\" or use docker-specific UFW rules"
+
+reconciliation_notes: |
+  Docker state is typically managed by orchestration tools (Docker Compose, Kubernetes).
+  Direct container reconciliation should be handled by these tools. This schema
+  primarily supports configuration validation and health checking.

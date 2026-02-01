@@ -1,0 +1,86 @@
+# systemd 255 Target System Schema
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/v1/targets/systemd/255.yaml
+
+metadata:
+  target_system: systemd
+  version_pattern: "255.*"
+  description: "systemd version 255 service management commands"
+
+commands:
+  check_active:
+    command: "systemctl is-active {service}"
+    returns:
+      active: "active"
+      inactive: "inactive"
+      failed: "failed"
+
+  check_enabled:
+    command: "systemctl is-enabled {service}"
+    returns:
+      enabled: "enabled"
+      disabled: "disabled"
+      masked: "masked"
+
+  get_status:
+    command: "systemctl status {service} --no-pager"
+
+  start:
+    command: "sudo systemctl start {service}"
+    idempotent: false
+
+  stop:
+    command: "sudo systemctl stop {service}"
+    idempotent: false
+
+  enable:
+    command: "sudo systemctl enable {service}"
+    idempotent: true
+
+  disable:
+    command: "sudo systemctl disable {service}"
+    idempotent: true
+
+  restart:
+    command: "sudo systemctl restart {service}"
+    idempotent: false
+
+  reload:
+    command: "sudo systemctl reload {service}"
+    idempotent: false
+
+  daemon_reload:
+    command: "sudo systemctl daemon-reload"
+    description: "Reload systemd manager configuration"
+
+reconciliation:
+  check_state:
+    command: "systemctl is-active {service}"
+    expect_map:
+      running: "active"
+      stopped: "inactive"
+
+  set_enabled:
+    command: "sudo systemctl enable {service}"
+    when: "enabled: true"
+
+  set_disabled:
+    command: "sudo systemctl disable {service}"
+    when: "enabled: false"
+
+  ensure_running:
+    command: "sudo systemctl start {service}"
+    when: "state: running and current_state: inactive"
+
+  ensure_stopped:
+    command: "sudo systemctl stop {service}"
+    when: "state: stopped and current_state: active"
+
+features:
+  supports_user_services: true
+  supports_templates: true
+  supports_sockets: true
+  supports_timers: true
+  journal_integration: true
+
+known_issues: []

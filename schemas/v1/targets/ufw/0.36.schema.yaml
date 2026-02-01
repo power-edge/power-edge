@@ -1,0 +1,132 @@
+# UFW 0.36.x Target System Schema
+# Defines version-specific commands and behavior for UFW firewall
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/v1/targets/ufw/0.36.yaml
+
+metadata:
+  target_system: ufw
+  version_pattern: "0.36.*"
+  compatible_versions:
+    - "0.36.0"
+    - "0.36.1"
+    - "0.36.2"
+  description: "UFW (Uncomplicated Firewall) version 0.36.x command mappings"
+
+commands:
+  check_status:
+    command: "sudo ufw status"
+    expect_active: "Status: active"
+    expect_inactive: "Status: inactive"
+
+  check_status_numbered:
+    command: "sudo ufw status numbered"
+    description: "Show numbered rules for parsing"
+
+  check_default_policy:
+    incoming: "sudo ufw status verbose | grep 'Default:' | awk '{print $2}'"
+    outgoing: "sudo ufw status verbose | grep 'Default:' | awk '{print $4}'"
+
+  enable:
+    command: "sudo ufw --force enable"
+    description: "Enable firewall (--force skips confirmation)"
+    idempotent: true
+
+  disable:
+    command: "sudo ufw disable"
+    idempotent: true
+
+  set_default:
+    incoming: "sudo ufw default {action} incoming"
+    outgoing: "sudo ufw default {action} outgoing"
+    valid_actions: ["allow", "deny", "reject"]
+
+  add_rule:
+    simple_port: "sudo ufw allow {port}/{proto}"
+    from_ip: "sudo ufw allow from {from} to any port {port} proto {proto}"
+    with_comment: "sudo ufw allow {port}/{proto} comment '{comment}'"
+    description: "Add firewall rule"
+
+  delete_rule:
+    by_number: "sudo ufw delete {number}"
+    by_spec: "sudo ufw delete allow {port}/{proto}"
+    description: "Delete rule by number or specification"
+
+  list_rules:
+    command: "sudo ufw status numbered"
+    parse_pattern: '^\[(\d+)\]\s+(\d+|\d+:\d+)/(\w+)\s+(\w+)\s+(.*)$'
+    description: "List all rules with numbers for parsing"
+
+reconciliation:
+  order:
+    - check_status
+    - set_defaults
+    - sync_rules
+    - enable_if_needed
+
+  check_status:
+    description: "Verify UFW is installed and accessible"
+    commands:
+      - "command -v ufw"
+      - "sudo ufw version"
+
+  set_defaults:
+    description: "Configure default policies"
+    check: "sudo ufw status verbose | grep 'Default:'"
+    reconcile: |
+      sudo ufw default {incoming} incoming
+      sudo ufw default {outgoing} outgoing
+
+  sync_rules:
+    description: "Synchronize firewall rules to match desired state"
+    strategy: "replace_all"
+    steps:
+      - "Get current rules: sudo ufw status numbered"
+      - "Delete unmatched rules (in reverse order)"
+      - "Add missing rules"
+
+  enable_if_needed:
+    description: "Enable UFW if desired state is enabled"
+    check: "sudo ufw status | grep -q 'Status: active'"
+    reconcile: "sudo ufw --force enable"
+
+validation:
+  port_range: "1-65535"
+  protocols: ["tcp", "udp", "esp", "ah", "gre"]
+  actions: ["allow", "deny", "reject", "limit"]
+  directions: ["in", "out"]
+
+features:
+  supports_comments: true
+  supports_ipv6: true
+  supports_rate_limiting: true
+  supports_application_profiles: true
+  requires_sudo: true
+
+known_issues:
+  - issue: "Comments may not persist across UFW reload in some versions"
+    affected_versions: ["0.36.0", "0.36.1"]
+    workaround: "Re-add rules with comments after reload"
+
+  - issue: "IPv6 rules managed separately"
+    description: "UFW manages IPv4 and IPv6 rules in separate chains"
+    recommendation: "Specify v6 explicitly for IPv6 rules"
+
+examples:
+  enable_firewall:
+    command: "sudo ufw --force enable"
+    state: "enabled: true"
+
+  allow_ssh:
+    command: "sudo ufw allow 22/tcp comment 'SSH access'"
+    state: |
+      rules:
+        - port: 22
+          proto: tcp
+          action: allow
+          comment: "SSH access"
+
+  default_deny:
+    command: "sudo ufw default deny incoming && sudo ufw default allow outgoing"
+    state: |
+      default_incoming: deny
+      default_outgoing: allow

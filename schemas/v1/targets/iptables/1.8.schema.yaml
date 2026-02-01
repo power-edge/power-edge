@@ -1,0 +1,71 @@
+# iptables 1.8.x Target System Schema
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://power-edge.dev/schemas/v1/targets/iptables/1.8.yaml
+
+metadata:
+  target_system: iptables
+  version_pattern: "1.8.*"
+  compatible_versions:
+    - "1.8.7"
+    - "1.8.8"
+    - "1.8.9"
+    - "1.8.10"
+  description: "iptables version 1.8.x firewall management commands"
+
+commands:
+  list_rules:
+    ipv4: "sudo iptables -L -n -v --line-numbers"
+    ipv6: "sudo ip6tables -L -n -v --line-numbers"
+    nat: "sudo iptables -t nat -L -n -v --line-numbers"
+    mangle: "sudo iptables -t mangle -L -n -v --line-numbers"
+
+  save_rules:
+    debian: "sudo iptables-save > /etc/iptables/rules.v4"
+    rhel: "sudo iptables-save > /etc/sysconfig/iptables"
+
+  restore_rules:
+    debian: "sudo iptables-restore < /etc/iptables/rules.v4"
+    rhel: "sudo iptables-restore < /etc/sysconfig/iptables"
+
+  add_rule:
+    append: "sudo iptables -A {chain} {rule_spec}"
+    insert: "sudo iptables -I {chain} {position} {rule_spec}"
+
+  delete_rule:
+    by_number: "sudo iptables -D {chain} {line_number}"
+    by_spec: "sudo iptables -D {chain} {rule_spec}"
+
+  flush_chain:
+    command: "sudo iptables -F {chain}"
+    all_chains: "sudo iptables -F"
+
+  set_policy:
+    command: "sudo iptables -P {chain} {target}"
+    valid_chains: ["INPUT", "OUTPUT", "FORWARD"]
+    valid_targets: ["ACCEPT", "DROP", "REJECT"]
+
+features:
+  nftables_backend: true  # 1.8.x uses nftables backend
+  legacy_mode_available: true
+  ipv6_support: true
+  connection_tracking: true
+
+backend:
+  type: "nft"
+  legacy_binary: "iptables-legacy"
+  description: "iptables 1.8.x uses nftables backend by default"
+
+known_issues:
+  - issue: "Mixed iptables-legacy and iptables-nft usage causes conflicts"
+    description: "Using both legacy and nft backends simultaneously can cause unexpected behavior"
+    recommendation: "Choose one backend and stick with it system-wide"
+    detection: "update-alternatives --query iptables"
+
+  - issue: "Docker and Kubernetes may conflict with manual rules"
+    description: "Container runtimes manage their own iptables rules"
+    recommendation: "Use UFW or firewalld as abstraction layer for user rules"
+
+reconciliation_notes: |
+  iptables is typically managed by higher-level tools (UFW, firewalld, Docker, Kubernetes).
+  Direct iptables reconciliation is complex and risky. Recommend using UFW schema for
+  firewall state management instead.
