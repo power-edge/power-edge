@@ -229,7 +229,7 @@ if ! id power-edge >/dev/null 2>&1; then
 fi
 
 # Configure passwordless sudo for specific commands
-eval $SUDO_PREFIX tee /etc/sudoers.d/power-edge > /dev/null << 'SUDOERS'
+cat > /tmp/power-edge-sudoers << 'SUDOERS'
 # Power Edge reconciliation commands
 power-edge ALL=(ALL) NOPASSWD: /usr/bin/systemctl
 power-edge ALL=(ALL) NOPASSWD: /usr/sbin/sysctl
@@ -237,9 +237,13 @@ power-edge ALL=(ALL) NOPASSWD: /usr/sbin/ufw
 power-edge ALL=(ALL) NOPASSWD: /usr/bin/apt-get
 power-edge ALL=(ALL) NOPASSWD: /usr/bin/yum
 power-edge ALL=(ALL) NOPASSWD: /usr/bin/dnf
+power-edge ALL=(ALL) NOPASSWD: /usr/sbin/iptables
 SUDOERS
 
+eval $SUDO_PREFIX cp /tmp/power-edge-sudoers /etc/sudoers.d/power-edge
 eval $SUDO_PREFIX chmod 440 /etc/sudoers.d/power-edge
+eval $SUDO_PREFIX chown root:root /etc/sudoers.d/power-edge
+rm -f /tmp/power-edge-sudoers
 
 # Create systemd template service
 cat > /tmp/power-edge@.service << 'SERVICE'
