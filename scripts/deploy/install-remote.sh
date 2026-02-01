@@ -129,6 +129,34 @@ GO_INSTALL
     echo "✅ Go $REQUIRED_GO_VERSION installed successfully"
 fi
 
+# Check if Git is installed (required for GitOps sync)
+echo "🔍 Checking for Git installation..."
+if ! ssh "$SSH_DEST" "command -v git >/dev/null 2>&1"; then
+    echo "📥 Installing Git..."
+    ssh "$SSH_DEST" "SUDO_PASS='${SUDO_PASS:-}'" 'bash -s' << 'GIT_INSTALL'
+set -euo pipefail
+
+# Setup sudo command
+if [ -n "${SUDO_PASS:-}" ]; then
+    SUDO_PREFIX="echo \"$SUDO_PASS\" | sudo -S"
+else
+    SUDO_PREFIX="sudo"
+fi
+
+echo "   Installing git..."
+eval $SUDO_PREFIX apt-get update -qq
+eval $SUDO_PREFIX apt-get install -y -qq git
+
+echo "   ✅ Git installed"
+GIT_INSTALL
+
+    echo "✅ Git installed successfully"
+else
+    GIT_VERSION=$(ssh "$SSH_DEST" "git --version | awk '{print \$3}'")
+    echo "✅ Git $GIT_VERSION already installed"
+fi
+echo ""
+
 # Install systemd development headers (required for go-systemd)
 echo "🔍 Checking for systemd development headers..."
 if ! ssh "$SSH_DEST" "pkg-config --exists libsystemd 2>/dev/null"; then
@@ -189,6 +217,11 @@ ssh "$SSH_DEST" "mkdir -p /tmp/power-edge-configs"
 scp "$NODE_CONFIG_DIR"/*.yaml "$SSH_DEST:/tmp/power-edge-configs/"
 echo "✅ Configs uploaded"
 
+# Extract node name from config directory for GitOps path
+NODE_NAME=$(basename "$NODE_CONFIG_DIR")
+echo ""
+echo "📝 Node name: $NODE_NAME"
+
 # Install on remote node
 echo "🔧 Installing power-edge on remote node..."
 
@@ -201,7 +234,7 @@ else
     SUDO_CMD="sudo"
 fi
 
-ssh "$SSH_DEST" "SUDO_PASS='${SUDO_PASS:-}'" 'bash -s' << 'REMOTE_INSTALL'
+ssh "$SSH_DEST" "SUDO_PASS='${SUDO_PASS:-}' NODE_NAME='$NODE_NAME'" 'bash -s' << 'REMOTE_INSTALL'
 set -euo pipefail
 
 # Setup sudo command
@@ -245,8 +278,9 @@ eval $SUDO_PREFIX chmod 440 /etc/sudoers.d/power-edge
 eval $SUDO_PREFIX chown root:root /etc/sudoers.d/power-edge
 rm -f /tmp/power-edge-sudoers
 
-# Create systemd template service
-cat > /tmp/power-edge@.service << 'SERVICE'
+# Create systemd template service with GitOps configuration
+# Use environment variable for node name in GitOps path
+cat > /tmp/power-edge@.service <<SERVICE
 [Unit]
 Description=Power Edge Client (%i)
 After=network.target
@@ -254,10 +288,15 @@ After=network.target
 [Service]
 Type=simple
 User=power-edge
-ExecStart=/usr/local/bin/power-edge-client \
-  -state-config=/etc/power-edge/generated-state.yaml \
-  -watcher-config=/etc/power-edge/generated-watcher-config.yaml \
-  -listen=:9100
+ExecStart=/usr/local/bin/power-edge-client \\
+  -state-config=/etc/power-edge/generated-state.yaml \\
+  -watcher-config=/etc/power-edge/generated-watcher-config.yaml \\
+  -listen=:9100 \\
+  -reconcile=enforce \\
+  -gitops-repo=https://github.com/power-edge/power-edge.git \\
+  -gitops-branch=main \\
+  -gitops-path=data/nodes/${NODE_NAME}/generated-state.yaml \\
+  -gitops-interval=30s
 Restart=on-failure
 RestartSec=10s
 
