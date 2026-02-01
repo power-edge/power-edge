@@ -111,33 +111,35 @@ install: build ## Install binaries to /usr/local/bin (local machine)
 	@echo "   /usr/local/bin/$(CLIENT_BINARY)"
 	@echo "   /usr/local/bin/$(SERVER_BINARY)"
 
-deploy: ## Deploy client to remote node via SSH (auto-detects platform, optional: passwordless sudo or SUDO_PASS)
+deploy: ## Deploy client to remote node (usage: make deploy data/nodes/stella-PowerEdge-T420)
 	@echo "🚀 Deploying to remote node..."
-	@# Load .env if it exists
+	@# Load .env if it exists for SUDO_PASS
 	@set -a; \
 	if [ -f .env ]; then \
 		echo "   Loading environment from .env"; \
 		. ./.env; \
 	fi; \
 	set +a; \
-	SSH_TARGET="$${SSH:-$(SSH)}"; \
-	NODE_CFG="$${NODE_CONFIG:-$(NODE_CONFIG)}"; \
-	if [ -z "$$SSH_TARGET" ]; then \
-		echo "Usage: make deploy SSH=user@hostname NODE_CONFIG=data/nodes/hostname"; \
-		echo "   Or: export SSH=user@hostname && make deploy NODE_CONFIG=..."; \
-		echo "   Or: Create .env file (see .env.example)"; \
-		echo "Example: make deploy SSH=stella@10.8.0.1 NODE_CONFIG=data/nodes/stella-PowerEdge-T420"; \
+	NODE_PATH="$(filter-out deploy,$(MAKECMDGOALS))"; \
+	if [ -z "$$NODE_PATH" ]; then \
+		echo "Usage: make deploy data/nodes/<hostname>"; \
+		echo "Example: make deploy data/nodes/stella-PowerEdge-T420"; \
 		echo ""; \
-		echo "❌ Error: SSH not set"; \
+		echo "❌ Error: Node path not specified"; \
 		exit 1; \
 	fi; \
-	if [ -z "$$NODE_CFG" ]; then \
-		echo ""; \
-		echo "❌ Error: NODE_CONFIG not set"; \
-		echo "   Run: make deploy SSH=user@hostname NODE_CONFIG=data/nodes/hostname"; \
+	if [ ! -d "$$NODE_PATH" ]; then \
+		echo "❌ Error: Node directory not found: $$NODE_PATH"; \
 		exit 1; \
 	fi; \
-	SUDO_PASS="$${SUDO_PASS:-}" bash scripts/deploy/install-remote.sh "$$SSH_TARGET" "$$NODE_CFG"
+	SUDO_PASS="$${SUDO_PASS:-}" bash scripts/deploy/install-remote.sh "$$NODE_PATH"
+
+# Allow passing node path as argument without error
+data/%:
+	@:
+
+%:
+	@:
 
 version: ## Show version info
 	@echo "Version:    $(VERSION)"

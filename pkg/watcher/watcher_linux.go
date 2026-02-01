@@ -33,7 +33,7 @@ func (w *EventWatcher) runInotifyWatcher() {
 
 	// Add all configured paths
 	for _, path := range w.config.Watchers.Inotify.Paths {
-		if err := watcher.Add(path); err != nil {
+		if err := watcher.Add(string(path)); err != nil {
 			log.Printf("   [inotify] Failed to watch %s: %v", path, err)
 		} else {
 			log.Printf("   [inotify] Watching: %s", path)
@@ -86,7 +86,7 @@ func (w *EventWatcher) runJournaldWatcher() {
 
 	// Add match for each configured unit
 	for _, unit := range w.config.Watchers.Journald.Units {
-		if err := journal.AddMatch("_SYSTEMD_UNIT=" + unit + ".service"); err != nil {
+		if err := journal.AddMatch("_SYSTEMD_UNIT=" + string(unit) + ".service"); err != nil {
 			log.Printf("   [journald] Failed to add match for %s: %v", unit, err)
 		} else {
 			log.Printf("   [journald] Watching unit: %s", unit)
@@ -196,11 +196,11 @@ func (w *EventWatcher) runAuditdWatcher() {
 				line := scanner.Text()
 				// Check if line contains any of our monitored commands
 				for _, cmd := range w.config.Watchers.Auditd.Commands {
-					if strings.Contains(line, cmd) && strings.Contains(line, "EXECVE") {
+					if strings.Contains(line, string(cmd)) && strings.Contains(line, "EXECVE") {
 						w.eventChan <- Event{
 							Type:      EventCommandExecuted,
 							Source:    "auditd",
-							Command:   cmd,
+							Command:   string(cmd),
 							Timestamp: time.Now(),
 							Data: map[string]string{
 								"audit_line": line,
@@ -260,11 +260,11 @@ func (w *EventWatcher) runAuditdViaJournald() {
 
 				message := entry.Fields["MESSAGE"]
 				for _, cmd := range w.config.Watchers.Auditd.Commands {
-					if strings.Contains(message, cmd) {
+					if strings.Contains(message, string(cmd)) {
 						w.eventChan <- Event{
 							Type:      EventCommandExecuted,
 							Source:    "auditd-fallback",
-							Command:   cmd,
+							Command:   string(cmd),
 							Timestamp: time.Unix(0, int64(entry.RealtimeTimestamp)*1000),
 							Data: map[string]string{
 								"message": message,

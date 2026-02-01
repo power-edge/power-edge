@@ -2,18 +2,17 @@
 set -euo pipefail
 
 # Install power-edge on a remote node via SSH
-# Usage: ./install-remote.sh <ssh-destination> <node-config-dir>
-# Example: ./install-remote.sh stella@10.8.0.1 data/nodes/stella-PowerEdge-T420
+# Usage: ./install-remote.sh <node-config-dir>
+# Example: ./install-remote.sh data/nodes/stella-PowerEdge-T420
 #
 # Optional: Set SUDO_PASS environment variable for remote sudo password
 # export SUDO_PASS=your-password
 
-SSH_DEST="${1:-}"
-NODE_CONFIG_DIR="${2:-}"
+NODE_CONFIG_DIR="${1:-}"
 
-if [ -z "$SSH_DEST" ] || [ -z "$NODE_CONFIG_DIR" ]; then
-    echo "Usage: $0 <ssh-destination> <node-config-dir>"
-    echo "Example: $0 stella@10.8.0.1 data/nodes/stella-PowerEdge-T420"
+if [ -z "$NODE_CONFIG_DIR" ]; then
+    echo "Usage: $0 <node-config-dir>"
+    echo "Example: $0 data/nodes/stella-PowerEdge-T420"
     echo ""
     echo "Optional: Set SUDO_PASS for remote sudo password"
     echo "  export SUDO_PASS=your-password"
@@ -24,6 +23,29 @@ if [ ! -d "$NODE_CONFIG_DIR" ]; then
     echo "❌ Error: Node config directory not found: $NODE_CONFIG_DIR"
     exit 1
 fi
+
+# Read SSH connection info from connection.yaml
+CONNECTION_FILE="$NODE_CONFIG_DIR/connection.yaml"
+if [ ! -f "$CONNECTION_FILE" ]; then
+    echo "❌ Error: Connection file not found: $CONNECTION_FILE"
+    echo "   Create $CONNECTION_FILE with:"
+    echo "   ssh:"
+    echo "     user: \"username\""
+    echo "     host: \"hostname_or_ip\""
+    exit 1
+fi
+
+# Parse YAML (simple approach for our known structure)
+SSH_USER=$(grep -A 2 "^ssh:" "$CONNECTION_FILE" | grep "user:" | sed 's/.*user: *"\(.*\)".*/\1/')
+SSH_HOST=$(grep -A 2 "^ssh:" "$CONNECTION_FILE" | grep "host:" | sed 's/.*host: *"\(.*\)".*/\1/')
+SSH_PORT=$(grep -A 3 "^ssh:" "$CONNECTION_FILE" | grep "port:" | sed 's/.*port: *\(.*\).*/\1/' || echo "22")
+
+if [ -z "$SSH_USER" ] || [ -z "$SSH_HOST" ]; then
+    echo "❌ Error: Could not parse SSH user/host from $CONNECTION_FILE"
+    exit 1
+fi
+
+SSH_DEST="$SSH_USER@$SSH_HOST"
 
 echo "🚀 Deploying power-edge to $SSH_DEST"
 echo ""
@@ -43,19 +65,8 @@ GOARCH=$(echo "$PLATFORM" | cut -d'-' -f2)
 echo "✅ Target platform: $PLATFORM (GOOS=$GOOS GOARCH=$GOARCH)"
 echo ""
 
-# Build binary for target platform
-echo "🔨 Building power-edge-client for $PLATFORM..."
-mkdir -p bin
-if GOOS="$GOOS" GOARCH="$GOARCH" go build -ldflags "-X main.Version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') -X main.GitCommit=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown') -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" -o bin/power-edge-client ./cmd/power-edge-client; then
-    echo "✅ Build complete: bin/power-edge-client ($PLATFORM)"
-else
-    echo "❌ Build failed"
-    exit 1
-fi
-echo ""
-
 # Test connectivity
-echo "Testing SSH connectivity..."
+echo "🔌 Testing SSH connectivity..."
 if ! ssh -o ConnectTimeout=5 "$SSH_DEST" "echo 'Connection OK'" >/dev/null 2>&1; then
     echo "❌ Cannot connect to $SSH_DEST"
     exit 1
@@ -63,10 +74,114 @@ fi
 echo "✅ Connected"
 echo ""
 
-# Upload binary
-echo "📦 Uploading binary..."
-scp bin/power-edge-client "$SSH_DEST:/tmp/power-edge-client"
-echo "✅ Binary uploaded"
+# Check if Go is installed, install/upgrade if needed
+echo "🔍 Checking for Go installation on target..."
+REQUIRED_GO_VERSION="1.23.5"
+
+if ssh "$SSH_DEST" "command -v go >/dev/null 2>&1"; then
+    INSTALLED_GO_VERSION=$(ssh "$SSH_DEST" "go version | awk '{print \$3}' | sed 's/go//'")
+    echo "   Found Go $INSTALLED_GO_VERSION"
+
+    # Check if we need to upgrade
+    if [ "$INSTALLED_GO_VERSION" != "$REQUIRED_GO_VERSION" ]; then
+        echo "   Upgrading Go to $REQUIRED_GO_VERSION..."
+        NEED_INSTALL=true
+    else
+        echo "✅ Go $REQUIRED_GO_VERSION already installed"
+        NEED_INSTALL=false
+    fi
+else
+    echo "📥 Go not found, installing..."
+    NEED_INSTALL=true
+fi
+
+if [ "$NEED_INSTALL" = true ]; then
+    ssh "$SSH_DEST" "SUDO_PASS='${SUDO_PASS:-}'" 'bash -s' << 'GO_INSTALL'
+set -euo pipefail
+
+# Setup sudo command
+if [ -n "${SUDO_PASS:-}" ]; then
+    SUDO_PREFIX="echo \"$SUDO_PASS\" | sudo -S"
+else
+    SUDO_PREFIX="sudo"
+fi
+
+GO_VERSION="1.23.5"
+GO_ARCH="amd64"
+
+echo "   Downloading Go $GO_VERSION..."
+wget -q -O /tmp/go.tar.gz https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
+
+echo "   Installing Go to /usr/local/go..."
+eval $SUDO_PREFIX rm -rf /usr/local/go
+eval $SUDO_PREFIX tar -C /usr/local -xzf /tmp/go.tar.gz
+rm /tmp/go.tar.gz
+
+echo "   Adding Go to PATH..."
+if ! grep -q '/usr/local/go/bin' ~/.bashrc; then
+    echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+fi
+export PATH=$PATH:/usr/local/go/bin
+
+echo "   ✅ Go $GO_VERSION installed"
+GO_INSTALL
+
+    echo "✅ Go $REQUIRED_GO_VERSION installed successfully"
+fi
+
+# Install systemd development headers (required for go-systemd)
+echo "🔍 Checking for systemd development headers..."
+if ! ssh "$SSH_DEST" "pkg-config --exists libsystemd 2>/dev/null"; then
+    echo "📥 Installing libsystemd-dev..."
+    ssh "$SSH_DEST" "SUDO_PASS='${SUDO_PASS:-}'" 'bash -s' << 'SYSTEMD_INSTALL'
+set -euo pipefail
+
+# Setup sudo command
+if [ -n "${SUDO_PASS:-}" ]; then
+    SUDO_PREFIX="echo \"$SUDO_PASS\" | sudo -S"
+else
+    SUDO_PREFIX="sudo"
+fi
+
+echo "   Installing systemd development packages..."
+eval $SUDO_PREFIX apt-get update -qq
+eval $SUDO_PREFIX apt-get install -y -qq libsystemd-dev pkg-config
+
+echo "   ✅ systemd development headers installed"
+SYSTEMD_INSTALL
+
+    echo "✅ systemd development headers installed"
+else
+    echo "✅ systemd development headers already installed"
+fi
+echo ""
+
+# Build on target (go-systemd cannot be cross-compiled from macOS)
+echo "🔨 Building power-edge-client on target machine..."
+
+# Create temp directory for source
+TEMP_BUILD_DIR="/tmp/power-edge-build-$$"
+ssh "$SSH_DEST" "mkdir -p $TEMP_BUILD_DIR"
+
+# Copy source files (excluding .git, bin/, vendor/, etc.)
+echo "📦 Copying source code to target..."
+rsync -az --exclude='.git' --exclude='bin/' --exclude='vendor/' --exclude='.idea/' --exclude='.vscode/' --exclude='discovery/' ./ "$SSH_DEST:$TEMP_BUILD_DIR/"
+
+# Build on target
+echo "🔧 Building on target machine..."
+ssh "$SSH_DEST" "export PATH=\$PATH:/usr/local/go/bin && cd $TEMP_BUILD_DIR && go build -ldflags \"-X main.Version=\$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') -X main.GitCommit=\$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown') -X main.BuildTime=\$(date -u '+%Y-%m-%d_%H:%M:%S')\" -o /tmp/power-edge-client ./cmd/power-edge-client"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Build complete on target"
+else
+    echo "❌ Build failed on target"
+    ssh "$SSH_DEST" "rm -rf $TEMP_BUILD_DIR"
+    exit 1
+fi
+
+# Cleanup build directory
+ssh "$SSH_DEST" "rm -rf $TEMP_BUILD_DIR"
+echo ""
 
 # Upload configs
 echo "📝 Uploading configs..."

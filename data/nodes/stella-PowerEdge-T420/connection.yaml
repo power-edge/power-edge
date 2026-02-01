@@ -1,0 +1,6 @@
+# SSH connection configuration for this node
+ssh:
+  host: "10.8.0.1"
+  user: "stella"
+  # Port defaults to 22 if not specified
+  # port: 22
