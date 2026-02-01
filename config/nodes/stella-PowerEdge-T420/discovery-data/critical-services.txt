@@ -1,3 +1,0 @@
-docker.service
-openvpn@server.service
-ssh.service

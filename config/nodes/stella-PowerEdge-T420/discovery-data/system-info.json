@@ -1,9 +1,0 @@
-{
-  "hostname": "stella-PowerEdge-T420",
-  "kernel": "6.14.0-35-generic",
-  "os": "Ubuntu 24.04.2 LTS",
-  "architecture": "x86_64",
-  "cpu_cores": 24,
-  "memory_gb": 251,
-  "discovered_at": "2026-01-31T00:55:35Z"
-}

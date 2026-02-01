@@ -25,7 +25,7 @@ if [ -z "$HOSTNAME" ] || [ "$HOSTNAME" = "null" ]; then
     exit 1
 fi
 
-NODE_DIR="config/nodes/$HOSTNAME"
+NODE_DIR="data/nodes/$HOSTNAME"
 
 echo "📦 Organizing config for node: $HOSTNAME"
 echo ""

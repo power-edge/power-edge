@@ -20,11 +20,11 @@ dist/
 build/
 
 # Secrets and sensitive configs (optional - uncomment if needed)
-# config/nodes/*/system-identity.yaml
-# config/nodes/*/identity.yaml
+# data/nodes/*/system-identity.yaml
+# data/nodes/*/identity.yaml
 
-# Discovered configs (regenerate as needed)
-discovered-config/
+# Discovery output (regenerate as needed)
+discovery/
 
 # Local development
 .env

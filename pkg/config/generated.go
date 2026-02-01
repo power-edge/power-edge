@@ -10,470 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// NodeIdentity represents a generated type.
-type NodeIdentity struct {
-	AccessControl AccessControl       `json:"access_control" yaml:"access_control"` // Remote access and firewall configuration
-	Version       string              `json:"version" yaml:"version"`               //
-	Node          NodeMetadata        `json:"node" yaml:"node"`                     //
-	Roles         []NodeRole          `json:"roles" yaml:"roles"`                   // Roles this node performs (maps to actual workloads)
-	VpnGateway    VPNGatewayConfig    `json:"vpn_gateway" yaml:"vpn_gateway"`       // Configuration for VPN gateway role
-	ContainerHost ContainerHostConfig `json:"container_host" yaml:"container_host"` // Configuration for container host role
-	NetworkTuning NetworkTuning       `json:"network_tuning" yaml:"network_tuning"` // Network-specific kernel parameters (semantic sysctl)
-	SystemTuning  SystemTuning        `json:"system_tuning" yaml:"system_tuning"`   // System-level kernel parameters (semantic sysctl)
-}
-
-// ContainerHostConfig Configuration for container host role
-type ContainerHostConfig struct {
-	Runtime   ContainerRuntime    `json:"runtime" yaml:"runtime"`     //
-	Workloads []ContainerWorkload `json:"workloads" yaml:"workloads"` //
-	Networks  []ContainerNetwork  `json:"networks" yaml:"networks"`   //
-}
-
-// ContainerRuntime represents a generated type.
-type ContainerRuntime string
-
-const (
-	ContainerRuntimeDocker     ContainerRuntime = "docker"
-	ContainerRuntimeContainerd ContainerRuntime = "containerd"
-	ContainerRuntimePodman     ContainerRuntime = "podman"
-)
-
-// ContainerWorkload represents a generated type.
-type ContainerWorkload struct {
-	Ports   []PortMapping `json:"ports" yaml:"ports"`     //
-	Volumes []VolumeMount `json:"volumes" yaml:"volumes"` //
-	Name    string        `json:"name" yaml:"name"`       // Container name
-	Image   string        `json:"image" yaml:"image"`     // Container image
-	State   string        `json:"state" yaml:"state"`     //
-}
-
-// StateEnum represents a generated type.
-type StateEnum string
-
-const (
-	StateEnumRunning StateEnum = "running"
-	StateEnumStopped StateEnum = "stopped"
-	StateEnumAbsent  StateEnum = "absent"
-)
-
-// PortMapping represents a generated type.
-type PortMapping struct {
-	Host      int    `json:"host" yaml:"host"`           //
-	Container int    `json:"container" yaml:"container"` //
-	Protocol  string `json:"protocol" yaml:"protocol"`   //
-}
-
-// ProtocolEnum represents a generated type.
-type ProtocolEnum string
-
-const (
-	ProtocolEnumTcp ProtocolEnum = "tcp"
-	ProtocolEnumUdp ProtocolEnum = "udp"
-)
-
-// VolumeMount represents a generated type.
-type VolumeMount struct {
-	Host      string `json:"host" yaml:"host"`           //
-	Container string `json:"container" yaml:"container"` //
-	ReadOnly  bool   `json:"read_only" yaml:"read_only"` //
-}
-
-// ContainerNetwork represents a generated type.
-type ContainerNetwork struct {
-	Subnet string        `json:"subnet" yaml:"subnet"` // Network subnet CIDR
-	Name   string        `json:"name" yaml:"name"`     //
-	Driver NetworkDriver `json:"driver" yaml:"driver"` //
-}
-
-// NetworkDriver represents a generated type.
-type NetworkDriver string
-
-const (
-	NetworkDriverBridge  NetworkDriver = "bridge"
-	NetworkDriverHost    NetworkDriver = "host"
-	NetworkDriverOverlay NetworkDriver = "overlay"
-	NetworkDriverMacvlan NetworkDriver = "macvlan"
-)
-
-// NetworkTuning Network-specific kernel parameters (semantic sysctl)
-type NetworkTuning struct {
-	TCPKeepaliveTime     int  `json:"tcp_keepalive_time" yaml:"tcp_keepalive_time"`           // TCP keepalive time in seconds
-	MaxSynBacklog        int  `json:"max_syn_backlog" yaml:"max_syn_backlog"`                 // Maximum SYN backlog
-	RmemMax              int  `json:"rmem_max" yaml:"rmem_max"`                               // Maximum receive buffer size
-	WmemMax              int  `json:"wmem_max" yaml:"wmem_max"`                               // Maximum send buffer size
-	IPForward            bool `json:"ip_forward" yaml:"ip_forward"`                           // Enable IP forwarding (net.ipv4.ip_forward)
-	BridgeNfCallIptables bool `json:"bridge_nf_call_iptables" yaml:"bridge_nf_call_iptables"` // Enable bridge netfilter (net.bridge.bridge-nf-call-iptables)
-}
-
-// SystemTuning System-level kernel parameters (semantic sysctl)
-type SystemTuning struct {
-	InotifyMaxUserWatches int `json:"inotify_max_user_watches" yaml:"inotify_max_user_watches"` // Maximum inotify watches (fs.inotify.max_user_watches)
-	KernelPanic           int `json:"kernel_panic" yaml:"kernel_panic"`                         // Seconds to wait before rebooting on panic
-	Swappiness            int `json:"swappiness" yaml:"swappiness"`                             // VM swappiness (vm.swappiness)
-}
-
-// AccessControl Remote access and firewall configuration
-type AccessControl struct {
-	Ssh      SSHConfig      `json:"ssh" yaml:"ssh"`           //
-	Firewall FirewallConfig `json:"firewall" yaml:"firewall"` //
-}
-
-// SSHConfig represents a generated type.
-type SSHConfig struct {
-	Enabled      bool `json:"enabled" yaml:"enabled"`             //
-	Port         int  `json:"port" yaml:"port"`                   //
-	PasswordAuth bool `json:"password_auth" yaml:"password_auth"` // Allow password authentication
-	RootLogin    bool `json:"root_login" yaml:"root_login"`       // Allow root login
-}
-
-// FirewallConfig represents a generated type.
-type FirewallConfig struct {
-	Provider        FirewallProvider      `json:"provider" yaml:"provider"`                 //
-	DefaultPolicy   FirewallDefaultPolicy `json:"default_policy" yaml:"default_policy"`     //
-	AllowedServices []string              `json:"allowed_services" yaml:"allowed_services"` // Services to allow (ssh, http, https, openvpn, etc.)
-	Enabled         bool                  `json:"enabled" yaml:"enabled"`                   //
-}
-
-// FirewallProvider represents a generated type.
-type FirewallProvider string
-
-const (
-	FirewallProviderUfw       FirewallProvider = "ufw"
-	FirewallProviderFirewalld FirewallProvider = "firewalld"
-	FirewallProviderIptables  FirewallProvider = "iptables"
-)
-
-// FirewallDefaultPolicy represents a generated type.
-type FirewallDefaultPolicy struct {
-	Outgoing string `json:"outgoing" yaml:"outgoing"` //
-	Incoming string `json:"incoming" yaml:"incoming"` //
-}
-
-// IncomingEnum represents a generated type.
-type IncomingEnum string
-
-const (
-	IncomingEnumAllow  IncomingEnum = "allow"
-	IncomingEnumDeny   IncomingEnum = "deny"
-	IncomingEnumReject IncomingEnum = "reject"
-)
-
-// OutgoingEnum represents a generated type.
-type OutgoingEnum string
-
-const (
-	OutgoingEnumAllow  OutgoingEnum = "allow"
-	OutgoingEnumDeny   OutgoingEnum = "deny"
-	OutgoingEnumReject OutgoingEnum = "reject"
-)
-
-// NodeMetadata represents a generated type.
-type NodeMetadata struct {
-	Purpose  string       `json:"purpose" yaml:"purpose"`   // Primary purpose of this node
-	Tags     []string     `json:"tags" yaml:"tags"`         // Semantic tags describing node capabilities
-	Hardware HardwareInfo `json:"hardware" yaml:"hardware"` //
-	Hostname string       `json:"hostname" yaml:"hostname"` // Canonical hostname of the node
-}
-
-// HardwareInfo represents a generated type.
-type HardwareInfo struct {
-	Model        string       `json:"model" yaml:"model"`               // Hardware model
-	CPUCores     int          `json:"cpu_cores" yaml:"cpu_cores"`       //
-	MemoryGB     int          `json:"memory_gb" yaml:"memory_gb"`       //
-	Architecture Architecture `json:"architecture" yaml:"architecture"` //
-}
-
-// Architecture represents a generated type.
-type Architecture string
-
-const (
-	ArchitectureX8664 Architecture = "x86_64"
-	ArchitectureArm64 Architecture = "arm64"
-	ArchitectureArmv7 Architecture = "armv7"
-)
-
-// NodeRole represents a generated type.
-type NodeRole struct {
-	Config  map[string]interface{} `json:"config" yaml:"config"`   // Role-specific configuration
-	Name    RoleName               `json:"name" yaml:"name"`       // Semantic role identifier
-	Enabled bool                   `json:"enabled" yaml:"enabled"` //
-}
-
-// RoleName Semantic role identifier
-type RoleName string
-
-const (
-	RoleNameVpnGateway       RoleName = "vpn-gateway"
-	RoleNameContainerHost    RoleName = "container-host"
-	RoleNameEdgeRouter       RoleName = "edge-router"
-	RoleNameMonitoringTarget RoleName = "monitoring-target"
-	RoleNameDevWorkstation   RoleName = "dev-workstation"
-	RoleNameK8sNode          RoleName = "k8s-node"
-)
-
-// VPNGatewayConfig Configuration for VPN gateway role
-type VPNGatewayConfig struct {
-	Provider     VPNProvider     `json:"provider" yaml:"provider"`           //
-	ServerConfig VPNServerConfig `json:"server_config" yaml:"server_config"` //
-	Routing      VPNRouting      `json:"routing" yaml:"routing"`             //
-}
-
-// VPNProvider represents a generated type.
-type VPNProvider string
-
-const (
-	VPNProviderOpenvpn   VPNProvider = "openvpn"
-	VPNProviderWireguard VPNProvider = "wireguard"
-	VPNProviderTailscale VPNProvider = "tailscale"
-)
-
-// VPNServerConfig represents a generated type.
-type VPNServerConfig struct {
-	Protocol string `json:"protocol" yaml:"protocol"` //
-	Network  string `json:"network" yaml:"network"`   // VPN network CIDR
-	Port     int    `json:"port" yaml:"port"`         //
-}
-
-// VPNRouting represents a generated type.
-type VPNRouting struct {
-	Routes     []VPNRoute `json:"routes" yaml:"routes"`         //
-	IPForward  bool       `json:"ip_forward" yaml:"ip_forward"` // Enable IP forwarding (net.ipv4.ip_forward)
-	Masquerade bool       `json:"masquerade" yaml:"masquerade"` // Enable NAT masquerading for VPN clients
-}
-
-// VPNRoute represents a generated type.
-type VPNRoute struct {
-	Network string `json:"network" yaml:"network"` // Destination network
-	Via     string `json:"via" yaml:"via"`         // Gateway or interface
-}
-
-// State represents a generated type.
-type State struct {
-	Metadata Metadata          `json:"metadata" yaml:"metadata"` //
-	Firewall FirewallConfig    `json:"firewall" yaml:"firewall"` //
-	Services []ServiceConfig   `json:"services" yaml:"services"` //
-	Sysctl   map[string]string `json:"sysctl" yaml:"sysctl"`     //
-	Packages []PackageConfig   `json:"packages" yaml:"packages"` //
-	Files    []FileConfig      `json:"files" yaml:"files"`       //
-	Version  Version           `json:"version" yaml:"version"`   //
-}
-
-// PackageConfig represents a generated type.
-type PackageConfig struct {
-	State   PackageState `json:"state" yaml:"state"`     //
-	Name    string       `json:"name" yaml:"name"`       //
-	Version string       `json:"version" yaml:"version"` // Desired version (empty means any)
-}
-
-// PackageState represents a generated type.
-type PackageState string
-
-const (
-	PackageStatePresent PackageState = "present"
-	PackageStateAbsent  PackageState = "absent"
-	PackageStateLatest  PackageState = "latest"
-)
-
-// FileConfig represents a generated type.
-type FileConfig struct {
-	Group   string   `json:"group" yaml:"group"`     //
-	Path    UnixPath `json:"path" yaml:"path"`       //
-	Content string   `json:"content" yaml:"content"` // Desired file content
-	SHA256  string   `json:"sha256" yaml:"sha256"`   // Expected SHA256 hash
-	Mode    string   `json:"mode" yaml:"mode"`       //
-	Owner   string   `json:"owner" yaml:"owner"`     //
-}
-
-// FirewallAction represents a generated type.
-type FirewallAction string
-
-const (
-	FirewallActionAllow  FirewallAction = "allow"
-	FirewallActionDeny   FirewallAction = "deny"
-	FirewallActionReject FirewallAction = "reject"
-)
-
-// DefaultOutgoingEnum represents a generated type.
-type DefaultOutgoingEnum string
-
-const (
-	DefaultOutgoingEnumAllow  DefaultOutgoingEnum = "allow"
-	DefaultOutgoingEnumDeny   DefaultOutgoingEnum = "deny"
-	DefaultOutgoingEnumReject DefaultOutgoingEnum = "reject"
-)
-
-// FirewallRule represents a generated type.
-type FirewallRule struct {
-	Port    Port     `json:"port" yaml:"port"`       //
-	Proto   Protocol `json:"proto" yaml:"proto"`     //
-	Action  string   `json:"action" yaml:"action"`   //
-	From    string   `json:"from" yaml:"from"`       //
-	To      string   `json:"to" yaml:"to"`           //
-	Comment string   `json:"comment" yaml:"comment"` //
-}
-
-// ActionEnum represents a generated type.
-type ActionEnum string
-
-const (
-	ActionEnumAllow  ActionEnum = "allow"
-	ActionEnumDeny   ActionEnum = "deny"
-	ActionEnumReject ActionEnum = "reject"
-)
-
-// ServiceConfig represents a generated type.
-type ServiceConfig struct {
-	Name    string       `json:"name" yaml:"name"`       // Service name (without .service suffix)
-	State   ServiceState `json:"state" yaml:"state"`     //
-	Enabled bool         `json:"enabled" yaml:"enabled"` //
-}
-
-// SystemIdentity Immutable system identifiers for node registration and validation
-type SystemIdentity struct {
-	Platform     PlatformInfo       `json:"platform" yaml:"platform"`           //
-	Identifiers  SystemIdentifiers  `json:"identifiers" yaml:"identifiers"`     // Platform-specific immutable identifiers
-	CompositeKey CompositeKey       `json:"composite_key" yaml:"composite_key"` // Composite identifier for database indexing
-	Validation   IdentityValidation `json:"validation" yaml:"validation"`       // Identity validation configuration
-	Registration NodeRegistration   `json:"registration" yaml:"registration"`   // Controller registration metadata
-}
-
-// PlatformInfo represents a generated type.
-type PlatformInfo struct {
-	OSType        OSType   `json:"os_type" yaml:"os_type"`               // Operating system type
-	OSFamily      OSFamily `json:"os_family" yaml:"os_family"`           // OS distribution family
-	OSVersion     string   `json:"os_version" yaml:"os_version"`         // OS version string
-	KernelVersion string   `json:"kernel_version" yaml:"kernel_version"` // Kernel version
-}
-
-// OSFamily OS distribution family
-type OSFamily string
-
-const (
-	OSFamilyDebian  OSFamily = "debian"
-	OSFamilyRhel    OSFamily = "rhel"
-	OSFamilyArch    OSFamily = "arch"
-	OSFamilyAlpine  OSFamily = "alpine"
-	OSFamilyMacos   OSFamily = "macos"
-	OSFamilyWindows OSFamily = "windows"
-)
-
-// OSType Operating system type
-type OSType string
-
-const (
-	OSTypeLinux   OSType = "linux"
-	OSTypeDarwin  OSType = "darwin"
-	OSTypeWindows OSType = "windows"
-	OSTypeBsd     OSType = "bsd"
-)
-
-// SystemIdentifiers Platform-specific immutable identifiers
-type SystemIdentifiers struct {
-	MachineID      string         `json:"machine_id" yaml:"machine_id"`             // systemd machine-id from /etc/machine-id
-	DMIProductUUID string         `json:"dmi_product_uuid" yaml:"dmi_product_uuid"` // DMI/SMBIOS product UUID from /sys/class/dmi/id/product_uuid
-	DMIBoardSerial string         `json:"dmi_board_serial" yaml:"dmi_board_serial"` // Motherboard serial number
-	CollectedBy    string         `json:"collected_by" yaml:"collected_by"`         // How identifiers were collected (probe script version)
-	IDType         IdentifierType `json:"id_type" yaml:"id_type"`                   // Type of primary identifier
-	IOPlatformUUID string         `json:"io_platform_uuid" yaml:"io_platform_uuid"` // macOS IOPlatformUUID from I/O Registry
-	HardwareUUID   string         `json:"hardware_uuid" yaml:"hardware_uuid"`       // macOS Hardware UUID
-	CollectedAt    string         `json:"collected_at" yaml:"collected_at"`         // When these identifiers were collected
-	PrimaryID      string         `json:"primary_id" yaml:"primary_id"`             // Primary system identifier (machine-id or hardware UUID)
-}
-
-// IdentifierType Type of primary identifier
-type IdentifierType string
-
-const (
-	IdentifierTypeMachineId      IdentifierType = "machine-id"
-	IdentifierTypeHardwareUuid   IdentifierType = "hardware-uuid"
-	IdentifierTypeIoPlatformUuid IdentifierType = "io-platform-uuid"
-	IdentifierTypeProductUuid    IdentifierType = "product-uuid"
-)
-
-// CompositeKey Composite identifier for database indexing
-type CompositeKey struct {
-	Key        string         `json:"key" yaml:"key"`               // Concatenated composite key (os_type:primary_id)
-	Components []KeyComponent `json:"components" yaml:"components"` //
-	Hash       string         `json:"hash" yaml:"hash"`             // SHA256 hash of composite key for indexing
-}
-
-// KeyComponent represents a generated type.
-type KeyComponent struct {
-	Name  string `json:"name" yaml:"name"`   // Component name (os_type, machine_id, etc.)
-	Value string `json:"value" yaml:"value"` // Component value
-}
-
-// IdentityValidation Identity validation configuration
-type IdentityValidation struct {
-	RequireMatch     bool `json:"require_match" yaml:"require_match"`           // Fail if identity doesn't match config
-	CheckOnStartup   bool `json:"check_on_startup" yaml:"check_on_startup"`     // Validate identity when exporter starts
-	AllowOSMigration bool `json:"allow_os_migration" yaml:"allow_os_migration"` // Allow OS reinstall (machine-id changes, hardware UUID stays)
-	AlertOnMismatch  bool `json:"alert_on_mismatch" yaml:"alert_on_mismatch"`   // Send alert if identity doesn't match
-}
-
-// NodeRegistration Controller registration metadata
-type NodeRegistration struct {
-	Registered        bool   `json:"registered" yaml:"registered"`                 // Whether node is registered with controller
-	RegisteredAt      string `json:"registered_at" yaml:"registered_at"`           //
-	ControllerURL     string `json:"controller_url" yaml:"controller_url"`         // URL of controlling instance
-	RegistrationToken string `json:"registration_token" yaml:"registration_token"` // Token for initial registration (rotated after first use)
-	LastCheckin       string `json:"last_checkin" yaml:"last_checkin"`             //
-}
-
-// WatcherConfig represents a generated type.
-type WatcherConfig struct {
-	Version      Version      `json:"version" yaml:"version"`             //
-	Watchers     Watchers     `json:"watchers" yaml:"watchers"`           //
-	EventHandler EventHandler `json:"event_handler" yaml:"event_handler"` // Configuration for event processing
-}
-
-// Watchers represents a generated type.
-type Watchers struct {
-	Dbus     DBusWatcher     `json:"dbus" yaml:"dbus"`         //
-	Enabled  bool            `json:"enabled" yaml:"enabled"`   // Master switch for all watchers
-	Inotify  InotifyWatcher  `json:"inotify" yaml:"inotify"`   //
-	Journald JournaldWatcher `json:"journald" yaml:"journald"` //
-	Auditd   AuditdWatcher   `json:"auditd" yaml:"auditd"`     //
-}
-
-// InotifyWatcher represents a generated type.
-type InotifyWatcher struct {
-	Enabled bool       `json:"enabled" yaml:"enabled"` //
-	Paths   []UnixPath `json:"paths" yaml:"paths"`     // File paths to monitor for changes
-}
-
-// JournaldWatcher represents a generated type.
-type JournaldWatcher struct {
-	Enabled bool          `json:"enabled" yaml:"enabled"` //
-	Units   []ServiceUnit `json:"units" yaml:"units"`     // Systemd units to monitor logs
-}
-
-// AuditdWatcher represents a generated type.
-type AuditdWatcher struct {
-	Syscalls []string  `json:"syscalls" yaml:"syscalls"` // Syscalls to monitor (e.g., execve, open, connect)
-	Enabled  bool      `json:"enabled" yaml:"enabled"`   //
-	Commands []Command `json:"commands" yaml:"commands"` // Commands to audit for execution
-}
-
-// DBusWatcher represents a generated type.
-type DBusWatcher struct {
-	Enabled bool     `json:"enabled" yaml:"enabled"` //
-	Signals []string `json:"signals" yaml:"signals"` // D-Bus signals to monitor
-}
-
-// EventHandler Configuration for event processing
-type EventHandler struct {
-	BufferSize int `json:"buffer_size" yaml:"buffer_size"` // Event channel buffer size
-	DebounceMs int `json:"debounce_ms" yaml:"debounce_ms"` // Milliseconds to debounce rapid events
-	BatchSize  int `json:"batch_size" yaml:"batch_size"`   // Max events to batch before processing
-}
-
-// ServiceUnit Systemd unit name
-type ServiceUnit string
-
-// Version Schema version in MAJOR.MINOR format
-type Version string
-
 // Metadata represents a generated type.
 type Metadata struct {
 	Environment string                 `json:"environment" yaml:"environment"` //
@@ -519,6 +55,470 @@ type UnixPath string
 
 // Command Shell command or binary name
 type Command string
+
+// ServiceUnit Systemd unit name
+type ServiceUnit string
+
+// Version Schema version in MAJOR.MINOR format
+type Version string
+
+// NodeIdentity represents a generated type.
+type NodeIdentity struct {
+	Node          NodeMetadata        `json:"node" yaml:"node"`                     //
+	Roles         []NodeRole          `json:"roles" yaml:"roles"`                   // Roles this node performs (maps to actual workloads)
+	VpnGateway    VPNGatewayConfig    `json:"vpn_gateway" yaml:"vpn_gateway"`       // Configuration for VPN gateway role
+	ContainerHost ContainerHostConfig `json:"container_host" yaml:"container_host"` // Configuration for container host role
+	NetworkTuning NetworkTuning       `json:"network_tuning" yaml:"network_tuning"` // Network-specific kernel parameters (semantic sysctl)
+	SystemTuning  SystemTuning        `json:"system_tuning" yaml:"system_tuning"`   // System-level kernel parameters (semantic sysctl)
+	AccessControl AccessControl       `json:"access_control" yaml:"access_control"` // Remote access and firewall configuration
+	Version       string              `json:"version" yaml:"version"`               //
+}
+
+// NodeMetadata represents a generated type.
+type NodeMetadata struct {
+	Tags     []string     `json:"tags" yaml:"tags"`         // Semantic tags describing node capabilities
+	Hardware HardwareInfo `json:"hardware" yaml:"hardware"` //
+	Hostname string       `json:"hostname" yaml:"hostname"` // Canonical hostname of the node
+	Purpose  string       `json:"purpose" yaml:"purpose"`   // Primary purpose of this node
+}
+
+// HardwareInfo represents a generated type.
+type HardwareInfo struct {
+	CPUCores     int          `json:"cpu_cores" yaml:"cpu_cores"`       //
+	MemoryGB     int          `json:"memory_gb" yaml:"memory_gb"`       //
+	Architecture Architecture `json:"architecture" yaml:"architecture"` //
+	Model        string       `json:"model" yaml:"model"`               // Hardware model
+}
+
+// Architecture represents a generated type.
+type Architecture string
+
+const (
+	ArchitectureX8664 Architecture = "x86_64"
+	ArchitectureArm64 Architecture = "arm64"
+	ArchitectureArmv7 Architecture = "armv7"
+)
+
+// NodeRole represents a generated type.
+type NodeRole struct {
+	Name    RoleName               `json:"name" yaml:"name"`       // Semantic role identifier
+	Enabled bool                   `json:"enabled" yaml:"enabled"` //
+	Config  map[string]interface{} `json:"config" yaml:"config"`   // Role-specific configuration
+}
+
+// RoleName Semantic role identifier
+type RoleName string
+
+const (
+	RoleNameVpnGateway       RoleName = "vpn-gateway"
+	RoleNameContainerHost    RoleName = "container-host"
+	RoleNameEdgeRouter       RoleName = "edge-router"
+	RoleNameMonitoringTarget RoleName = "monitoring-target"
+	RoleNameDevWorkstation   RoleName = "dev-workstation"
+	RoleNameK8sNode          RoleName = "k8s-node"
+)
+
+// VPNGatewayConfig Configuration for VPN gateway role
+type VPNGatewayConfig struct {
+	Provider     VPNProvider     `json:"provider" yaml:"provider"`           //
+	ServerConfig VPNServerConfig `json:"server_config" yaml:"server_config"` //
+	Routing      VPNRouting      `json:"routing" yaml:"routing"`             //
+}
+
+// VPNProvider represents a generated type.
+type VPNProvider string
+
+const (
+	VPNProviderOpenvpn   VPNProvider = "openvpn"
+	VPNProviderWireguard VPNProvider = "wireguard"
+	VPNProviderTailscale VPNProvider = "tailscale"
+)
+
+// VPNServerConfig represents a generated type.
+type VPNServerConfig struct {
+	Port     int    `json:"port" yaml:"port"`         //
+	Protocol string `json:"protocol" yaml:"protocol"` //
+	Network  string `json:"network" yaml:"network"`   // VPN network CIDR
+}
+
+// ProtocolEnum represents a generated type.
+type ProtocolEnum string
+
+const (
+	ProtocolEnumUdp ProtocolEnum = "udp"
+	ProtocolEnumTcp ProtocolEnum = "tcp"
+)
+
+// VPNRouting represents a generated type.
+type VPNRouting struct {
+	IPForward  bool       `json:"ip_forward" yaml:"ip_forward"` // Enable IP forwarding (net.ipv4.ip_forward)
+	Masquerade bool       `json:"masquerade" yaml:"masquerade"` // Enable NAT masquerading for VPN clients
+	Routes     []VPNRoute `json:"routes" yaml:"routes"`         //
+}
+
+// VPNRoute represents a generated type.
+type VPNRoute struct {
+	Network string `json:"network" yaml:"network"` // Destination network
+	Via     string `json:"via" yaml:"via"`         // Gateway or interface
+}
+
+// ContainerHostConfig Configuration for container host role
+type ContainerHostConfig struct {
+	Networks  []ContainerNetwork  `json:"networks" yaml:"networks"`   //
+	Runtime   ContainerRuntime    `json:"runtime" yaml:"runtime"`     //
+	Workloads []ContainerWorkload `json:"workloads" yaml:"workloads"` //
+}
+
+// ContainerNetwork represents a generated type.
+type ContainerNetwork struct {
+	Subnet string        `json:"subnet" yaml:"subnet"` // Network subnet CIDR
+	Name   string        `json:"name" yaml:"name"`     //
+	Driver NetworkDriver `json:"driver" yaml:"driver"` //
+}
+
+// NetworkDriver represents a generated type.
+type NetworkDriver string
+
+const (
+	NetworkDriverBridge  NetworkDriver = "bridge"
+	NetworkDriverHost    NetworkDriver = "host"
+	NetworkDriverOverlay NetworkDriver = "overlay"
+	NetworkDriverMacvlan NetworkDriver = "macvlan"
+)
+
+// ContainerRuntime represents a generated type.
+type ContainerRuntime string
+
+const (
+	ContainerRuntimeDocker     ContainerRuntime = "docker"
+	ContainerRuntimeContainerd ContainerRuntime = "containerd"
+	ContainerRuntimePodman     ContainerRuntime = "podman"
+)
+
+// ContainerWorkload represents a generated type.
+type ContainerWorkload struct {
+	State   string        `json:"state" yaml:"state"`     //
+	Ports   []PortMapping `json:"ports" yaml:"ports"`     //
+	Volumes []VolumeMount `json:"volumes" yaml:"volumes"` //
+	Name    string        `json:"name" yaml:"name"`       // Container name
+	Image   string        `json:"image" yaml:"image"`     // Container image
+}
+
+// PortMapping represents a generated type.
+type PortMapping struct {
+	Host      int    `json:"host" yaml:"host"`           //
+	Container int    `json:"container" yaml:"container"` //
+	Protocol  string `json:"protocol" yaml:"protocol"`   //
+}
+
+// VolumeMount represents a generated type.
+type VolumeMount struct {
+	Host      string `json:"host" yaml:"host"`           //
+	Container string `json:"container" yaml:"container"` //
+	ReadOnly  bool   `json:"read_only" yaml:"read_only"` //
+}
+
+// StateEnum represents a generated type.
+type StateEnum string
+
+const (
+	StateEnumRunning StateEnum = "running"
+	StateEnumStopped StateEnum = "stopped"
+	StateEnumAbsent  StateEnum = "absent"
+)
+
+// NetworkTuning Network-specific kernel parameters (semantic sysctl)
+type NetworkTuning struct {
+	IPForward            bool `json:"ip_forward" yaml:"ip_forward"`                           // Enable IP forwarding (net.ipv4.ip_forward)
+	BridgeNfCallIptables bool `json:"bridge_nf_call_iptables" yaml:"bridge_nf_call_iptables"` // Enable bridge netfilter (net.bridge.bridge-nf-call-iptables)
+	TCPKeepaliveTime     int  `json:"tcp_keepalive_time" yaml:"tcp_keepalive_time"`           // TCP keepalive time in seconds
+	MaxSynBacklog        int  `json:"max_syn_backlog" yaml:"max_syn_backlog"`                 // Maximum SYN backlog
+	RmemMax              int  `json:"rmem_max" yaml:"rmem_max"`                               // Maximum receive buffer size
+	WmemMax              int  `json:"wmem_max" yaml:"wmem_max"`                               // Maximum send buffer size
+}
+
+// SystemTuning System-level kernel parameters (semantic sysctl)
+type SystemTuning struct {
+	Swappiness            int `json:"swappiness" yaml:"swappiness"`                             // VM swappiness (vm.swappiness)
+	InotifyMaxUserWatches int `json:"inotify_max_user_watches" yaml:"inotify_max_user_watches"` // Maximum inotify watches (fs.inotify.max_user_watches)
+	KernelPanic           int `json:"kernel_panic" yaml:"kernel_panic"`                         // Seconds to wait before rebooting on panic
+}
+
+// AccessControl Remote access and firewall configuration
+type AccessControl struct {
+	Ssh      SSHConfig      `json:"ssh" yaml:"ssh"`           //
+	Firewall FirewallConfig `json:"firewall" yaml:"firewall"` //
+}
+
+// SSHConfig represents a generated type.
+type SSHConfig struct {
+	Port         int  `json:"port" yaml:"port"`                   //
+	PasswordAuth bool `json:"password_auth" yaml:"password_auth"` // Allow password authentication
+	RootLogin    bool `json:"root_login" yaml:"root_login"`       // Allow root login
+	Enabled      bool `json:"enabled" yaml:"enabled"`             //
+}
+
+// FirewallConfig represents a generated type.
+type FirewallConfig struct {
+	AllowedServices []string              `json:"allowed_services" yaml:"allowed_services"` // Services to allow (ssh, http, https, openvpn, etc.)
+	Enabled         bool                  `json:"enabled" yaml:"enabled"`                   //
+	Provider        FirewallProvider      `json:"provider" yaml:"provider"`                 //
+	DefaultPolicy   FirewallDefaultPolicy `json:"default_policy" yaml:"default_policy"`     //
+}
+
+// FirewallProvider represents a generated type.
+type FirewallProvider string
+
+const (
+	FirewallProviderUfw       FirewallProvider = "ufw"
+	FirewallProviderFirewalld FirewallProvider = "firewalld"
+	FirewallProviderIptables  FirewallProvider = "iptables"
+)
+
+// FirewallDefaultPolicy represents a generated type.
+type FirewallDefaultPolicy struct {
+	Outgoing string `json:"outgoing" yaml:"outgoing"` //
+	Incoming string `json:"incoming" yaml:"incoming"` //
+}
+
+// IncomingEnum represents a generated type.
+type IncomingEnum string
+
+const (
+	IncomingEnumAllow  IncomingEnum = "allow"
+	IncomingEnumDeny   IncomingEnum = "deny"
+	IncomingEnumReject IncomingEnum = "reject"
+)
+
+// OutgoingEnum represents a generated type.
+type OutgoingEnum string
+
+const (
+	OutgoingEnumAllow  OutgoingEnum = "allow"
+	OutgoingEnumDeny   OutgoingEnum = "deny"
+	OutgoingEnumReject OutgoingEnum = "reject"
+)
+
+// State represents a generated type.
+type State struct {
+	Files    []FileConfig      `json:"files" yaml:"files"`       //
+	Version  Version           `json:"version" yaml:"version"`   //
+	Metadata Metadata          `json:"metadata" yaml:"metadata"` //
+	Firewall FirewallConfig    `json:"firewall" yaml:"firewall"` //
+	Services []ServiceConfig   `json:"services" yaml:"services"` //
+	Sysctl   map[string]string `json:"sysctl" yaml:"sysctl"`     //
+	Packages []PackageConfig   `json:"packages" yaml:"packages"` //
+}
+
+// FirewallAction represents a generated type.
+type FirewallAction string
+
+const (
+	FirewallActionAllow  FirewallAction = "allow"
+	FirewallActionDeny   FirewallAction = "deny"
+	FirewallActionReject FirewallAction = "reject"
+)
+
+// DefaultOutgoingEnum represents a generated type.
+type DefaultOutgoingEnum string
+
+const (
+	DefaultOutgoingEnumAllow  DefaultOutgoingEnum = "allow"
+	DefaultOutgoingEnumDeny   DefaultOutgoingEnum = "deny"
+	DefaultOutgoingEnumReject DefaultOutgoingEnum = "reject"
+)
+
+// FirewallRule represents a generated type.
+type FirewallRule struct {
+	To      string   `json:"to" yaml:"to"`           //
+	Comment string   `json:"comment" yaml:"comment"` //
+	Port    Port     `json:"port" yaml:"port"`       //
+	Proto   Protocol `json:"proto" yaml:"proto"`     //
+	Action  string   `json:"action" yaml:"action"`   //
+	From    string   `json:"from" yaml:"from"`       //
+}
+
+// ActionEnum represents a generated type.
+type ActionEnum string
+
+const (
+	ActionEnumAllow  ActionEnum = "allow"
+	ActionEnumDeny   ActionEnum = "deny"
+	ActionEnumReject ActionEnum = "reject"
+)
+
+// ServiceConfig represents a generated type.
+type ServiceConfig struct {
+	Enabled bool         `json:"enabled" yaml:"enabled"` //
+	Name    string       `json:"name" yaml:"name"`       // Service name (without .service suffix)
+	State   ServiceState `json:"state" yaml:"state"`     //
+}
+
+// PackageConfig represents a generated type.
+type PackageConfig struct {
+	Name    string       `json:"name" yaml:"name"`       //
+	Version string       `json:"version" yaml:"version"` // Desired version (empty means any)
+	State   PackageState `json:"state" yaml:"state"`     //
+}
+
+// PackageState represents a generated type.
+type PackageState string
+
+const (
+	PackageStatePresent PackageState = "present"
+	PackageStateAbsent  PackageState = "absent"
+	PackageStateLatest  PackageState = "latest"
+)
+
+// FileConfig represents a generated type.
+type FileConfig struct {
+	Path    UnixPath `json:"path" yaml:"path"`       //
+	Content string   `json:"content" yaml:"content"` // Desired file content
+	SHA256  string   `json:"sha256" yaml:"sha256"`   // Expected SHA256 hash
+	Mode    string   `json:"mode" yaml:"mode"`       //
+	Owner   string   `json:"owner" yaml:"owner"`     //
+	Group   string   `json:"group" yaml:"group"`     //
+}
+
+// SystemIdentity Immutable system identifiers for node registration and validation
+type SystemIdentity struct {
+	Validation   IdentityValidation `json:"validation" yaml:"validation"`       // Identity validation configuration
+	Registration NodeRegistration   `json:"registration" yaml:"registration"`   // Controller registration metadata
+	Platform     PlatformInfo       `json:"platform" yaml:"platform"`           //
+	Identifiers  SystemIdentifiers  `json:"identifiers" yaml:"identifiers"`     // Platform-specific immutable identifiers
+	CompositeKey CompositeKey       `json:"composite_key" yaml:"composite_key"` // Composite identifier for database indexing
+}
+
+// PlatformInfo represents a generated type.
+type PlatformInfo struct {
+	OSType        OSType   `json:"os_type" yaml:"os_type"`               // Operating system type
+	OSFamily      OSFamily `json:"os_family" yaml:"os_family"`           // OS distribution family
+	OSVersion     string   `json:"os_version" yaml:"os_version"`         // OS version string
+	KernelVersion string   `json:"kernel_version" yaml:"kernel_version"` // Kernel version
+}
+
+// OSType Operating system type
+type OSType string
+
+const (
+	OSTypeLinux   OSType = "linux"
+	OSTypeDarwin  OSType = "darwin"
+	OSTypeWindows OSType = "windows"
+	OSTypeBsd     OSType = "bsd"
+)
+
+// OSFamily OS distribution family
+type OSFamily string
+
+const (
+	OSFamilyDebian  OSFamily = "debian"
+	OSFamilyRhel    OSFamily = "rhel"
+	OSFamilyArch    OSFamily = "arch"
+	OSFamilyAlpine  OSFamily = "alpine"
+	OSFamilyMacos   OSFamily = "macos"
+	OSFamilyWindows OSFamily = "windows"
+)
+
+// SystemIdentifiers Platform-specific immutable identifiers
+type SystemIdentifiers struct {
+	MachineID      string         `json:"machine_id" yaml:"machine_id"`             // systemd machine-id from /etc/machine-id
+	IOPlatformUUID string         `json:"io_platform_uuid" yaml:"io_platform_uuid"` // macOS IOPlatformUUID from I/O Registry
+	HardwareUUID   string         `json:"hardware_uuid" yaml:"hardware_uuid"`       // macOS Hardware UUID
+	CollectedAt    string         `json:"collected_at" yaml:"collected_at"`         // When these identifiers were collected
+	PrimaryID      string         `json:"primary_id" yaml:"primary_id"`             // Primary system identifier (machine-id or hardware UUID)
+	IDType         IdentifierType `json:"id_type" yaml:"id_type"`                   // Type of primary identifier
+	DMIProductUUID string         `json:"dmi_product_uuid" yaml:"dmi_product_uuid"` // DMI/SMBIOS product UUID from /sys/class/dmi/id/product_uuid
+	DMIBoardSerial string         `json:"dmi_board_serial" yaml:"dmi_board_serial"` // Motherboard serial number
+	CollectedBy    string         `json:"collected_by" yaml:"collected_by"`         // How identifiers were collected (probe script version)
+}
+
+// IdentifierType Type of primary identifier
+type IdentifierType string
+
+const (
+	IdentifierTypeMachineId      IdentifierType = "machine-id"
+	IdentifierTypeHardwareUuid   IdentifierType = "hardware-uuid"
+	IdentifierTypeIoPlatformUuid IdentifierType = "io-platform-uuid"
+	IdentifierTypeProductUuid    IdentifierType = "product-uuid"
+)
+
+// CompositeKey Composite identifier for database indexing
+type CompositeKey struct {
+	Components []KeyComponent `json:"components" yaml:"components"` //
+	Hash       string         `json:"hash" yaml:"hash"`             // SHA256 hash of composite key for indexing
+	Key        string         `json:"key" yaml:"key"`               // Concatenated composite key (os_type:primary_id)
+}
+
+// KeyComponent represents a generated type.
+type KeyComponent struct {
+	Name  string `json:"name" yaml:"name"`   // Component name (os_type, machine_id, etc.)
+	Value string `json:"value" yaml:"value"` // Component value
+}
+
+// IdentityValidation Identity validation configuration
+type IdentityValidation struct {
+	RequireMatch     bool `json:"require_match" yaml:"require_match"`           // Fail if identity doesn't match config
+	CheckOnStartup   bool `json:"check_on_startup" yaml:"check_on_startup"`     // Validate identity when exporter starts
+	AllowOSMigration bool `json:"allow_os_migration" yaml:"allow_os_migration"` // Allow OS reinstall (machine-id changes, hardware UUID stays)
+	AlertOnMismatch  bool `json:"alert_on_mismatch" yaml:"alert_on_mismatch"`   // Send alert if identity doesn't match
+}
+
+// NodeRegistration Controller registration metadata
+type NodeRegistration struct {
+	LastCheckin       string `json:"last_checkin" yaml:"last_checkin"`             //
+	Registered        bool   `json:"registered" yaml:"registered"`                 // Whether node is registered with controller
+	RegisteredAt      string `json:"registered_at" yaml:"registered_at"`           //
+	ControllerURL     string `json:"controller_url" yaml:"controller_url"`         // URL of controlling instance
+	RegistrationToken string `json:"registration_token" yaml:"registration_token"` // Token for initial registration (rotated after first use)
+}
+
+// WatcherConfig represents a generated type.
+type WatcherConfig struct {
+	Version      Version      `json:"version" yaml:"version"`             //
+	Watchers     Watchers     `json:"watchers" yaml:"watchers"`           //
+	EventHandler EventHandler `json:"event_handler" yaml:"event_handler"` // Configuration for event processing
+}
+
+// EventHandler Configuration for event processing
+type EventHandler struct {
+	BufferSize int `json:"buffer_size" yaml:"buffer_size"` // Event channel buffer size
+	DebounceMs int `json:"debounce_ms" yaml:"debounce_ms"` // Milliseconds to debounce rapid events
+	BatchSize  int `json:"batch_size" yaml:"batch_size"`   // Max events to batch before processing
+}
+
+// Watchers represents a generated type.
+type Watchers struct {
+	Dbus     DBusWatcher     `json:"dbus" yaml:"dbus"`         //
+	Enabled  bool            `json:"enabled" yaml:"enabled"`   // Master switch for all watchers
+	Inotify  InotifyWatcher  `json:"inotify" yaml:"inotify"`   //
+	Journald JournaldWatcher `json:"journald" yaml:"journald"` //
+	Auditd   AuditdWatcher   `json:"auditd" yaml:"auditd"`     //
+}
+
+// InotifyWatcher represents a generated type.
+type InotifyWatcher struct {
+	Enabled bool       `json:"enabled" yaml:"enabled"` //
+	Paths   []UnixPath `json:"paths" yaml:"paths"`     // File paths to monitor for changes
+}
+
+// JournaldWatcher represents a generated type.
+type JournaldWatcher struct {
+	Enabled bool          `json:"enabled" yaml:"enabled"` //
+	Units   []ServiceUnit `json:"units" yaml:"units"`     // Systemd units to monitor logs
+}
+
+// AuditdWatcher represents a generated type.
+type AuditdWatcher struct {
+	Enabled  bool      `json:"enabled" yaml:"enabled"`   //
+	Commands []Command `json:"commands" yaml:"commands"` // Commands to audit for execution
+	Syscalls []string  `json:"syscalls" yaml:"syscalls"` // Syscalls to monitor (e.g., execve, open, connect)
+}
+
+// DBusWatcher represents a generated type.
+type DBusWatcher struct {
+	Enabled bool     `json:"enabled" yaml:"enabled"` //
+	Signals []string `json:"signals" yaml:"signals"` // D-Bus signals to monitor
+}
 
 // LoadStateConfig loads state configuration from YAML file
 func LoadStateConfig(path string) (*State, error) {

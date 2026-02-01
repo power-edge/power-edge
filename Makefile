@@ -8,7 +8,7 @@ BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 # Directories
 OUTPUT_DIR = bin
 SCHEMA_DIR = schemas
-CONFIG_DIR = config/nodes/stella-PowerEdge-T420
+CONFIG_DIR = data/nodes/stella-PowerEdge-T420
 
 # Binary names
 CLIENT_BINARY = power-edge-client
@@ -123,10 +123,10 @@ deploy: ## Deploy client to remote node via SSH (auto-detects platform, optional
 	SSH_TARGET="$${SSH:-$(SSH)}"; \
 	NODE_CFG="$${NODE_CONFIG:-$(NODE_CONFIG)}"; \
 	if [ -z "$$SSH_TARGET" ]; then \
-		echo "Usage: make deploy SSH=user@hostname NODE_CONFIG=config/nodes/hostname"; \
+		echo "Usage: make deploy SSH=user@hostname NODE_CONFIG=data/nodes/hostname"; \
 		echo "   Or: export SSH=user@hostname && make deploy NODE_CONFIG=..."; \
 		echo "   Or: Create .env file (see .env.example)"; \
-		echo "Example: make deploy SSH=stella@10.8.0.1 NODE_CONFIG=config/nodes/stella-PowerEdge-T420"; \
+		echo "Example: make deploy SSH=stella@10.8.0.1 NODE_CONFIG=data/nodes/stella-PowerEdge-T420"; \
 		echo ""; \
 		echo "❌ Error: SSH not set"; \
 		exit 1; \
@@ -134,7 +134,7 @@ deploy: ## Deploy client to remote node via SSH (auto-detects platform, optional
 	if [ -z "$$NODE_CFG" ]; then \
 		echo ""; \
 		echo "❌ Error: NODE_CONFIG not set"; \
-		echo "   Run: make deploy SSH=user@hostname NODE_CONFIG=config/nodes/hostname"; \
+		echo "   Run: make deploy SSH=user@hostname NODE_CONFIG=data/nodes/hostname"; \
 		exit 1; \
 	fi; \
 	SUDO_PASS="$${SUDO_PASS:-}" bash scripts/deploy/install-remote.sh "$$SSH_TARGET" "$$NODE_CFG"

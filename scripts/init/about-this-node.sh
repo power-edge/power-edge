@@ -362,7 +362,7 @@ SUGGESTED_TAGS+=("$(echo $HOSTNAME | grep -oE '(prod|dev|test|staging|lab)' || e
 echo ""
 item "Suggested Tags" "$(IFS=', '; echo "${SUGGESTED_TAGS[*]}")"
 echo ""
-item "Configuration Path" "config/nodes/$HOSTNAME/"
+item "Configuration Path" "data/nodes/$HOSTNAME/"
 echo ""
 
 echo -e "${GREEN}✅ System identity report complete${NC}"

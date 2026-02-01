@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Install power-edge on a remote node via SSH
 # Usage: ./install-remote.sh <ssh-destination> <node-config-dir>
-# Example: ./install-remote.sh stella@10.8.0.1 config/nodes/stella-PowerEdge-T420
+# Example: ./install-remote.sh stella@10.8.0.1 data/nodes/stella-PowerEdge-T420
 #
 # Optional: Set SUDO_PASS environment variable for remote sudo password
 # export SUDO_PASS=your-password
@@ -13,7 +13,7 @@ NODE_CONFIG_DIR="${2:-}"
 
 if [ -z "$SSH_DEST" ] || [ -z "$NODE_CONFIG_DIR" ]; then
     echo "Usage: $0 <ssh-destination> <node-config-dir>"
-    echo "Example: $0 stella@10.8.0.1 config/nodes/stella-PowerEdge-T420"
+    echo "Example: $0 stella@10.8.0.1 data/nodes/stella-PowerEdge-T420"
     echo ""
     echo "Optional: Set SUDO_PASS for remote sudo password"
     echo "  export SUDO_PASS=your-password"
