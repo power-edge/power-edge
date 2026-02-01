@@ -23,8 +23,8 @@ build/
 # data/nodes/*/system-identity.yaml
 # data/nodes/*/identity.yaml
 
-# Discovery output (regenerate as needed)
-discovery/
+# Discovery output (regenerate as needed, per-node)
+data/nodes/*/discovery/
 
 # Local development
 .env

@@ -50,9 +50,9 @@ if [ -f "$DISCOVERED_DIR/system-identity.yaml" ]; then
 fi
 
 # Copy raw discovery data for reference
-mkdir -p "$NODE_DIR/discovery-data"
-cp "$DISCOVERED_DIR"/*.{txt,json} "$NODE_DIR/discovery-data/" 2>/dev/null || true
-echo "✓ Copied raw discovery data to $NODE_DIR/discovery-data/"
+mkdir -p "$NODE_DIR/discovery"
+cp "$DISCOVERED_DIR"/*.{txt,json} "$NODE_DIR/discovery/" 2>/dev/null || true
+echo "✓ Copied raw discovery data to $NODE_DIR/discovery/"
 
 echo ""
 echo "✅ Config organized successfully!"
