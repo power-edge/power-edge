@@ -299,7 +299,7 @@ echo ""
 # ========================================
 echo "📝 Generating state configuration..."
 
-cat > "$OUTPUT_DIR/generated-state.yaml" << EOF
+cat > "$OUTPUT_DIR/state.yaml" << EOF
 version: "1.0"
 metadata:
   site: "$HOSTNAME"
@@ -310,11 +310,11 @@ EOF
 
 # Add firewall section
 if [ -f "$OUTPUT_DIR/ufw-rules.txt" ]; then
-    echo "firewall:" >> "$OUTPUT_DIR/generated-state.yaml"
-    echo "  enabled: true" >> "$OUTPUT_DIR/generated-state.yaml"
-    echo "  default_incoming: deny" >> "$OUTPUT_DIR/generated-state.yaml"
-    echo "  default_outgoing: allow" >> "$OUTPUT_DIR/generated-state.yaml"
-    echo "  rules:" >> "$OUTPUT_DIR/generated-state.yaml"
+    echo "firewall:" >> "$OUTPUT_DIR/state.yaml"
+    echo "  enabled: true" >> "$OUTPUT_DIR/state.yaml"
+    echo "  default_incoming: deny" >> "$OUTPUT_DIR/state.yaml"
+    echo "  default_outgoing: allow" >> "$OUTPUT_DIR/state.yaml"
+    echo "  rules:" >> "$OUTPUT_DIR/state.yaml"
 
     # Parse UFW rules (extract port/proto from numbered output)
     grep '^\[' "$OUTPUT_DIR/ufw-rules.txt" | grep 'ALLOW' | while IFS= read -r line; do
@@ -329,37 +329,37 @@ if [ -f "$OUTPUT_DIR/ufw-rules.txt" ]; then
             continue
         fi
 
-        echo "    - port: $port" >> "$OUTPUT_DIR/generated-state.yaml"
-        echo "      proto: $proto" >> "$OUTPUT_DIR/generated-state.yaml"
-        echo "      action: allow" >> "$OUTPUT_DIR/generated-state.yaml"
-        echo "      from: any" >> "$OUTPUT_DIR/generated-state.yaml"
-        echo "      comment: \"Auto-discovered\"" >> "$OUTPUT_DIR/generated-state.yaml"
+        echo "    - port: $port" >> "$OUTPUT_DIR/state.yaml"
+        echo "      proto: $proto" >> "$OUTPUT_DIR/state.yaml"
+        echo "      action: allow" >> "$OUTPUT_DIR/state.yaml"
+        echo "      from: any" >> "$OUTPUT_DIR/state.yaml"
+        echo "      comment: \"Auto-discovered\"" >> "$OUTPUT_DIR/state.yaml"
     done
 fi
 
 # Add services section
 if [ -f "$OUTPUT_DIR/critical-services.txt" ] && [ -s "$OUTPUT_DIR/critical-services.txt" ]; then
-    echo "" >> "$OUTPUT_DIR/generated-state.yaml"
-    echo "services:" >> "$OUTPUT_DIR/generated-state.yaml"
+    echo "" >> "$OUTPUT_DIR/state.yaml"
+    echo "services:" >> "$OUTPUT_DIR/state.yaml"
     while IFS= read -r service; do
         service_name=$(echo "$service" | sed 's/.service$//')
-        echo "  - name: $service_name" >> "$OUTPUT_DIR/generated-state.yaml"
-        echo "    state: running" >> "$OUTPUT_DIR/generated-state.yaml"
-        echo "    enabled: true" >> "$OUTPUT_DIR/generated-state.yaml"
+        echo "  - name: $service_name" >> "$OUTPUT_DIR/state.yaml"
+        echo "    state: running" >> "$OUTPUT_DIR/state.yaml"
+        echo "    enabled: true" >> "$OUTPUT_DIR/state.yaml"
     done < "$OUTPUT_DIR/critical-services.txt"
 fi
 
 # Add sysctl section
 if [ -f "$OUTPUT_DIR/sysctl-important.txt" ]; then
-    echo "" >> "$OUTPUT_DIR/generated-state.yaml"
-    echo "sysctl:" >> "$OUTPUT_DIR/generated-state.yaml"
+    echo "" >> "$OUTPUT_DIR/state.yaml"
+    echo "sysctl:" >> "$OUTPUT_DIR/state.yaml"
     while IFS= read -r line; do
         if [[ $line =~ ^([^=]+)\ =\ (.+)$ ]]; then
             key="${BASH_REMATCH[1]}"
             value="${BASH_REMATCH[2]}"
             # Skip comment lines
             if [[ ! $line =~ ^# ]]; then
-                echo "  $key: \"$value\"" >> "$OUTPUT_DIR/generated-state.yaml"
+                echo "  $key: \"$value\"" >> "$OUTPUT_DIR/state.yaml"
             fi
         fi
     done < "$OUTPUT_DIR/sysctl-important.txt"
@@ -370,7 +370,7 @@ fi
 # ========================================
 echo "📝 Generating watcher configuration..."
 
-cat > "$OUTPUT_DIR/generated-watcher-config.yaml" << EOF
+cat > "$OUTPUT_DIR/watcher-config.yaml" << EOF
 # Auto-generated watcher configuration
 version: "1.0"
 
@@ -385,13 +385,13 @@ EOF
 # Add discovered paths
 if [ -f "$OUTPUT_DIR/existing-paths.txt" ]; then
     while IFS= read -r path; do
-        echo "      - $path" >> "$OUTPUT_DIR/generated-watcher-config.yaml"
+        echo "      - $path" >> "$OUTPUT_DIR/watcher-config.yaml"
     done < "$OUTPUT_DIR/existing-paths.txt"
 fi
 
 # Add services to watch
 if [ -f "$OUTPUT_DIR/critical-services.txt" ] && [ -s "$OUTPUT_DIR/critical-services.txt" ]; then
-    cat >> "$OUTPUT_DIR/generated-watcher-config.yaml" << EOF
+    cat >> "$OUTPUT_DIR/watcher-config.yaml" << EOF
 
   journald:
     enabled: true
@@ -399,12 +399,12 @@ if [ -f "$OUTPUT_DIR/critical-services.txt" ] && [ -s "$OUTPUT_DIR/critical-serv
 EOF
 
     while IFS= read -r service; do
-        echo "      - $service" >> "$OUTPUT_DIR/generated-watcher-config.yaml"
+        echo "      - $service" >> "$OUTPUT_DIR/watcher-config.yaml"
     done < "$OUTPUT_DIR/critical-services.txt"
 fi
 
 # Add commands to audit
-cat >> "$OUTPUT_DIR/generated-watcher-config.yaml" << EOF
+cat >> "$OUTPUT_DIR/watcher-config.yaml" << EOF
 
   auditd:
     enabled: true
@@ -417,10 +417,10 @@ EOF
 
 # Add docker/kubectl if found
 if remote_exec "command -v docker >/dev/null 2>&1" | grep -v COMMAND_FAILED >/dev/null; then
-    echo "      - docker" >> "$OUTPUT_DIR/generated-watcher-config.yaml"
+    echo "      - docker" >> "$OUTPUT_DIR/watcher-config.yaml"
 fi
 if remote_exec "command -v kubectl >/dev/null 2>&1" | grep -v COMMAND_FAILED >/dev/null; then
-    echo "      - kubectl" >> "$OUTPUT_DIR/generated-watcher-config.yaml"
+    echo "      - kubectl" >> "$OUTPUT_DIR/watcher-config.yaml"
 fi
 
 echo ""
