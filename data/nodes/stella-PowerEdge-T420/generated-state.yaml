@@ -2,7 +2,7 @@ version: "1.0"
 metadata:
   site: "stella-PowerEdge-T420"
   environment: "home-lab"
-  description: "Dell T420 Home Server - Auto-discovered 2026-02-01T03:41:54Z"
+  description: "Dell T420 Home Server - GitOps Test"
 
 
 services:
