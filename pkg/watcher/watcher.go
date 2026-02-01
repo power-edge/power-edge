@@ -180,55 +180,6 @@ func (w *EventWatcher) affectsMonitoredState(command string) bool {
 	return false
 }
 
-// Placeholder watcher implementations
-// These demonstrate the config-driven approach and can be fully implemented later
-
-func (w *EventWatcher) runInotifyWatcher() {
-	defer w.wg.Done()
-	log.Println("   [inotify] Watcher started (placeholder)")
-
-	// TODO: Implement fsnotify watcher
-	// for _, path := range w.config.Watchers.Inotify.Paths {
-	//     watcher.Add(path)
-	// }
-
-	<-w.ctx.Done()
-	log.Println("   [inotify] Watcher stopped")
-}
-
-func (w *EventWatcher) runJournaldWatcher() {
-	defer w.wg.Done()
-	log.Println("   [journald] Watcher started (placeholder)")
-
-	// TODO: Implement journald watcher
-	// for _, unit := range w.config.Watchers.Journald.Units {
-	//     journal.AddMatch("_SYSTEMD_UNIT=" + unit)
-	// }
-
-	<-w.ctx.Done()
-	log.Println("   [journald] Watcher stopped")
-}
-
-func (w *EventWatcher) runAuditdWatcher() {
-	defer w.wg.Done()
-	log.Println("   [auditd] Watcher started (placeholder)")
-
-	// TODO: Implement auditd watcher
-	// for _, cmd := range w.config.Watchers.Auditd.Commands {
-	//     auditctl -w /usr/bin/$cmd -p x -k power-edge
-	// }
-
-	<-w.ctx.Done()
-	log.Println("   [auditd] Watcher stopped")
-}
-
-func (w *EventWatcher) runDbusWatcher() {
-	defer w.wg.Done()
-	log.Println("   [dbus] Watcher started (placeholder)")
-
-	// TODO: Implement dbus watcher
-	// conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, ...)
-
-	<-w.ctx.Done()
-	log.Println("   [dbus] Watcher stopped")
-}
+// Platform-specific watcher implementations are in:
+// - watcher_linux.go (real implementations for Linux)
+// - watcher_stub.go (placeholders for non-Linux platforms)
