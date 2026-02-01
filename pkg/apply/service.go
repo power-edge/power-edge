@@ -138,7 +138,7 @@ func (a *ServiceApplier) isServiceEnabled(name string) (bool, error) {
 }
 
 func (a *ServiceApplier) executeSystemctl(action, serviceName string) error {
-	cmd := exec.Command("systemctl", action, serviceName)
+	cmd := exec.Command("sudo", "systemctl", action, serviceName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s (output: %s)", err, string(output))

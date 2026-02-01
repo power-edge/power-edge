@@ -88,7 +88,7 @@ func (a *FirewallApplier) isUFWInstalled() bool {
 }
 
 func (a *FirewallApplier) isEnabled() (bool, error) {
-	cmd := exec.Command("ufw", "status")
+	cmd := exec.Command("sudo", "ufw", "status")
 	output, err := cmd.Output()
 	if err != nil {
 		return false, err
@@ -99,7 +99,7 @@ func (a *FirewallApplier) isEnabled() (bool, error) {
 
 func (a *FirewallApplier) enable() error {
 	// Use --force to avoid interactive prompt
-	cmd := exec.Command("ufw", "--force", "enable")
+	cmd := exec.Command("sudo", "ufw", "--force", "enable")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s (output: %s)", err, string(output))
@@ -108,7 +108,7 @@ func (a *FirewallApplier) enable() error {
 }
 
 func (a *FirewallApplier) disable() error {
-	cmd := exec.Command("ufw", "disable")
+	cmd := exec.Command("sudo", "ufw", "disable")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s (output: %s)", err, string(output))
@@ -117,7 +117,7 @@ func (a *FirewallApplier) disable() error {
 }
 
 func (a *FirewallApplier) allowService(service string) error {
-	cmd := exec.Command("ufw", "allow", service)
+	cmd := exec.Command("sudo", "ufw", "allow", service)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s (output: %s)", err, string(output))

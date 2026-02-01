@@ -113,10 +113,23 @@ if ! id power-edge >/dev/null 2>&1; then
     eval $SUDO_PREFIX useradd --system --no-create-home --shell /bin/false power-edge
 fi
 
+# Configure passwordless sudo for specific commands
+eval $SUDO_PREFIX tee /etc/sudoers.d/power-edge > /dev/null << 'SUDOERS'
+# Power Edge reconciliation commands
+power-edge ALL=(ALL) NOPASSWD: /usr/bin/systemctl
+power-edge ALL=(ALL) NOPASSWD: /usr/sbin/sysctl
+power-edge ALL=(ALL) NOPASSWD: /usr/sbin/ufw
+power-edge ALL=(ALL) NOPASSWD: /usr/bin/apt-get
+power-edge ALL=(ALL) NOPASSWD: /usr/bin/yum
+power-edge ALL=(ALL) NOPASSWD: /usr/bin/dnf
+SUDOERS
+
+eval $SUDO_PREFIX chmod 440 /etc/sudoers.d/power-edge
+
 # Create systemd template service
 cat > /tmp/power-edge@.service << 'SERVICE'
 [Unit]
-Description=Power Edge - Edge State Controller (%i)
+Description=Power Edge Client (%i)
 After=network.target
 
 [Service]
@@ -130,9 +143,8 @@ Restart=on-failure
 RestartSec=10s
 
 # Security hardening
-NoNewPrivileges=true
+# Note: NoNewPrivileges disabled to allow sudo for reconciliation
 PrivateTmp=true
-ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/log
 

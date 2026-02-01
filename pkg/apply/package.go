@@ -165,11 +165,11 @@ func (a *PackageApplier) install(name, version string) error {
 
 	switch a.packageManager {
 	case "apt":
-		cmd = exec.Command("apt-get", "install", "-y", packageSpec)
+		cmd = exec.Command("sudo", "apt-get", "install", "-y", packageSpec)
 	case "yum":
-		cmd = exec.Command("yum", "install", "-y", packageSpec)
+		cmd = exec.Command("sudo", "yum", "install", "-y", packageSpec)
 	case "dnf":
-		cmd = exec.Command("dnf", "install", "-y", packageSpec)
+		cmd = exec.Command("sudo", "dnf", "install", "-y", packageSpec)
 	default:
 		return fmt.Errorf("unsupported package manager: %s", a.packageManager)
 	}
@@ -186,11 +186,11 @@ func (a *PackageApplier) remove(name string) error {
 
 	switch a.packageManager {
 	case "apt":
-		cmd = exec.Command("apt-get", "remove", "-y", name)
+		cmd = exec.Command("sudo", "apt-get", "remove", "-y", name)
 	case "yum":
-		cmd = exec.Command("yum", "remove", "-y", name)
+		cmd = exec.Command("sudo", "yum", "remove", "-y", name)
 	case "dnf":
-		cmd = exec.Command("dnf", "remove", "-y", name)
+		cmd = exec.Command("sudo", "dnf", "remove", "-y", name)
 	default:
 		return fmt.Errorf("unsupported package manager: %s", a.packageManager)
 	}
@@ -207,11 +207,11 @@ func (a *PackageApplier) upgrade(name string) error {
 
 	switch a.packageManager {
 	case "apt":
-		cmd = exec.Command("apt-get", "install", "--only-upgrade", "-y", name)
+		cmd = exec.Command("sudo", "apt-get", "install", "--only-upgrade", "-y", name)
 	case "yum":
-		cmd = exec.Command("yum", "update", "-y", name)
+		cmd = exec.Command("sudo", "yum", "update", "-y", name)
 	case "dnf":
-		cmd = exec.Command("dnf", "upgrade", "-y", name)
+		cmd = exec.Command("sudo", "dnf", "upgrade", "-y", name)
 	default:
 		return fmt.Errorf("unsupported package manager: %s", a.packageManager)
 	}

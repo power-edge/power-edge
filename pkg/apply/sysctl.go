@@ -63,7 +63,7 @@ func (a *SysctlApplier) Get(key string) (string, error) {
 
 // Set applies a new value to a sysctl parameter
 func (a *SysctlApplier) Set(key, value string) error {
-	cmd := exec.Command("sysctl", "-w", fmt.Sprintf("%s=%s", key, value))
+	cmd := exec.Command("sudo", "sysctl", "-w", fmt.Sprintf("%s=%s", key, value))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s (output: %s)", err, string(output))
